@@ -332,24 +332,32 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
 // kw   : 네이버/카카오에서 검색할 키워드 (지역명 뒤에 붙음)
 // mapKw: 이 앱의 카카오 지도 검색에 쓸 키워드 (없으면 kw 사용)
 // extra: 추가로 보여줄 참고 링크
+// tv:true  → 방송 맛집 테마. 지도 검색은 '가게 이름'으로 찾기 때문에
+//            '이영자 맛집'처럼 사람 이름을 넣으면 '이영자삼계탕' 같은 무관한 가게가 나옴.
+//            그래서 ① 방송·후기 검색(web)을 먼저 보여주고, ② 지도 검색(mapQ)은 사람 이름을 뺀 프로그램명으로 함.
+// web  : 네이버 통합검색·블로그·유튜브용 검색어
+// mapQ : 네이버지도·카카오맵 검색어
+// mapKw: 이 앱 지도(카카오 장소검색)용 검색어. 방송 테마는 가게 이름 검색이 의미 없어 사용 안 함
+// exclude: 결과에서 뺄 가게 이름 (이름만 같은 가게)
 const DEFAULT_THEMES = [
-  {id:'jhm', c:'#ff7a59',   em:'🍜', name:'전현무계획',   kw:'전현무계획 맛집'},
-  {id:'lyj', c:'#ffb547',   em:'🍱', name:'이영자 맛집',  kw:'이영자 맛집'},
-  {id:'smsh', c:'#f2668b',  em:'🍽️', name:'수요미식회',   kw:'수요미식회 맛집'},
-  {id:'3dc', c:'#ff5e3a',   em:'🔥', name:'3대천왕',      kw:'백종원 3대천왕 맛집'},
-  {id:'dal', c:'#ffd84d',   em:'🥇', name:'생활의 달인',  kw:'생활의달인 맛집'},
-  {id:'jsd', c:'#8c9bff',   em:'⏳', name:'줄서는식당',   kw:'줄서는식당'},
-  {id:'ttg', c:'#b98cff',   em:'🎬', name:'또간집',       kw:'또간집'},
-  {id:'blue', c:'#4fa8ff',  em:'🎗️', name:'블루리본',     kw:'블루리본 맛집'},
+  {id:'jhm', c:'#ff7a59',   em:'🍜', name:'전현무계획',   tv:true, kw:'전현무계획 맛집', web:'전현무계획 맛집', mapQ:'전현무계획'},
+  {id:'lyj', c:'#ffb547',   em:'🍱', name:'이영자 맛집',  tv:true, kw:'이영자 맛집', web:'이영자 맛집 전참시', mapQ:'전참시 맛집', exclude:['이영자']},
+  {id:'smsh', c:'#f2668b',  em:'🍽️', name:'수요미식회',   tv:true, kw:'수요미식회 맛집', web:'수요미식회 맛집', mapQ:'수요미식회'},
+  {id:'3dc', c:'#ff5e3a',   em:'🔥', name:'3대천왕',      tv:true, kw:'3대천왕 맛집', web:'백종원의 3대천왕 맛집', mapQ:'3대천왕'},
+  {id:'dal', c:'#ffd84d',   em:'🥇', name:'생활의 달인',  tv:true, kw:'생활의달인 맛집', web:'생활의달인 맛집', mapQ:'생활의달인'},
+  {id:'jsd', c:'#8c9bff',   em:'⏳', name:'줄서는식당',   tv:true, kw:'줄서는식당', web:'줄서는식당 맛집', mapQ:'줄서는식당'},
+  {id:'ttg', c:'#b98cff',   em:'🎬', name:'또간집',       tv:true, kw:'또간집', web:'또간집 맛집', mapQ:'또간집'},
+  {id:'blue', c:'#4fa8ff',  em:'🎗️', name:'블루리본',     kw:'블루리본 맛집', web:'블루리본 서베이 맛집', mapQ:'블루리본'},
   {id:'nopo', c:'#d9a26a',  em:'🏮', name:'노포 맛집',    kw:'노포 맛집'},
-  {id:'lotto', c:'#34d399', em:'🍀', name:'로또 명당',    kw:'로또 명당', mapKw:'복권판매점',
+  {id:'lotto', c:'#34d399', em:'🍀', name:'로또 명당',    kw:'로또 명당', web:'로또 1등 당첨 판매점', mapQ:'복권판매점', mapKw:'복권판매점',
     extra:[
       {label:'동행복권 (공식) 홈페이지', url:'https://dhlottery.co.kr'},
       {label:'로또 1등 당첨 판매점 모음 (민간)', url:'https://pyony.com/lotto/win-stores/'}
     ]},
-  {id:'bakery', c:'#f6a96b',em:'🥐', name:'빵지순례',     kw:'빵집 빵지순례'},
-  {id:'view', c:'#3cc8dc',  em:'🌅', name:'뷰 맛집·카페', kw:'뷰 카페'}
+  {id:'bakery', c:'#f6a96b',em:'🥐', name:'빵지순례',     kw:'빵집', web:'빵지순례 빵집'},
+  {id:'view', c:'#3cc8dc',  em:'🌅', name:'뷰 맛집·카페', kw:'뷰 카페', web:'뷰 맛집 카페'}
 ];
+const THEME_VER = 2;
 
 // ---------- 저장소 ----------
 const LS = {
@@ -357,6 +365,12 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('ms_'+k, JSON.stringify(v)); }catch(e){ toast('저장 공간에 쓸 수 없어요'); } }
 };
 let themes   = LS.get('themes', null) || DEFAULT_THEMES.slice();
+if ((LS.get('themesVer', 1)) < THEME_VER){
+  themes = themes.map(t => { const d = DEFAULT_THEMES.find(x => x.id === t.id);
+    return d ? Object.assign({}, t, {tv:d.tv, kw:d.kw, web:d.web, mapQ:d.mapQ, mapKw:d.mapKw, exclude:d.exclude, extra:d.extra}) : t; });
+  if (LS.get('themes', null)) LS.set('themes', themes);
+  LS.set('themesVer', THEME_VER);
+}
 let places   = LS.get('places', []);          // 저장한 장소
 let recents  = LS.get('recents', []);         // 최근 지역
 // 앱에 기본으로 들어 있는 카카오 JavaScript 키 (https://younguk06-sonny.github.io 에서만 동작)
@@ -562,38 +576,54 @@ function openThemeForm(i){
 function openSearchSheet(theme, freeText){
   const area = currentArea();
   if (!useMyLoc && area) rememberRegion(area);
-  const kw = theme ? theme.kw : freeText;
-  const q = (area ? area + ' ' : '') + kw;
+  const pre = area ? area + ' ' : '';
+  const webQ = pre + (theme ? (theme.web || theme.kw) : freeText);   // 방송·후기 검색어
+  const mapQ = pre + (theme ? (theme.mapQ || theme.kw) : freeText);  // 지도 검색어
   const pos = useMyLoc ? myPos : null;
   const where = useMyLoc ? (myArea || '내 주변') : (area || '지역 미지정');
   const extra = (theme && theme.extra || []).map(x =>
     `<a class="lnk plain" href="${esc(x.url)}" target="_blank" rel="noopener">🔗 ${esc(x.label)}</a>`).join('');
-  const hasKey = !!kakaoKey();
+  const inAppKw = theme ? (theme.tv ? '' : (theme.mapKw || theme.kw)) : freeText;   // 방송 테마는 앱 지도 검색 안 함
+  const webBlock = `
+    <div class="bigbtns">
+      <a class="lnk naver" href="${esc(Links.naverWeb(webQ))}" target="_blank" rel="noopener">N 네이버 검색</a>
+      <a class="lnk plain" style="justify-content:center" href="${esc(Links.naverBlog(webQ))}" target="_blank" rel="noopener">📝 블로그 후기</a>
+    </div>
+    <div class="actions">
+      <a class="lnk plain" href="${esc(Links.youtube(webQ))}" target="_blank" rel="noopener">▶ 유튜브</a>
+      ${extra}
+    </div>`;
+  const mapBlock = `
+    <div class="bigbtns">
+      <a class="lnk naver" href="${esc(Links.naverSearch(mapQ))}" target="_blank" rel="noopener">N 네이버지도</a>
+      <a class="lnk kakao" href="${esc(Links.kakaoSearch(mapQ,pos))}" target="_blank" rel="noopener">K 카카오맵</a>
+    </div>`;
+  const tv = theme && theme.tv;
   openSheet(`
     <h2>${theme ? esc(theme.em)+' '+esc(theme.name) : '🔎 직접 검색'}</h2>
-    <div class="q">📍 ${esc(where)} · 검색어 "<b>${esc(q)}</b>"</div>
-    <div class="bigbtns">
-      <a class="lnk naver" href="${esc(Links.naverSearch(q))}" target="_blank" rel="noopener">N 네이버지도</a>
-      <a class="lnk kakao" href="${esc(Links.kakaoSearch(q,pos))}" target="_blank" rel="noopener">K 카카오맵</a>
-    </div>
-    <div class="label" style="margin-top:14px">방송·후기로 확인하기</div>
-    <div class="actions" style="margin-top:0">
-      <a class="lnk plain" href="${esc(Links.naverWeb(q))}" target="_blank" rel="noopener">네이버 통합검색</a>
-      <a class="lnk plain" href="${esc(Links.naverBlog(q))}" target="_blank" rel="noopener">블로그 후기</a>
-      <a class="lnk plain" href="${esc(Links.youtube(q))}" target="_blank" rel="noopener">유튜브</a>
-      ${extra}
-    </div>
+    <div class="q">📍 ${esc(where)}</div>
+    ${tv ? `
+      <div class="label" style="margin-top:4px">① 방송에 나온 집 찾기 <span class="badge" style="margin:0">추천</span></div>
+      <div class="hint" style="margin:-4px 0 8px">“${esc(webQ)}” 로 방송 소개글·후기를 찾아요</div>
+      ${webBlock}
+      <div class="label" style="margin-top:16px">② 지도에서 찾기</div>
+      <div class="hint" style="margin:-4px 0 8px">“${esc(mapQ)}” 로 찾아요. 지도는 가게 이름·소개로 검색해서 <b>방송과 무관한 가게가 섞일 수 있어요.</b> 가게 이름을 확인한 뒤엔 ① 결과의 가게명으로 다시 검색하는 게 정확해요.</div>
+      ${mapBlock}`
+    : `
+      <div class="hint" style="margin:-4px 0 8px">지도 검색어 “${esc(mapQ)}”</div>
+      ${mapBlock}
+      <div class="label" style="margin-top:14px">후기로 확인하기</div>
+      ${webBlock}`}
     <hr>
-    ${hasKey
-      ? `<button class="btn primary" id="sOpenMap" style="width:100%">🗺️ 이 앱 지도에서 "${esc(theme ? (theme.mapKw||theme.kw) : freeText)}" 찾기</button>`
-      : `<p class="hint">마음에 드는 곳을 찾으면 <b>저장</b> 탭 → <b>장소 직접 추가</b>로 내 목록에 담아두세요.</p>`}
+    ${kakaoKey() && inAppKw
+      ? `<button class="btn primary" id="sOpenMap" style="width:100%">🗺️ 이 앱 지도에서 "${esc(inAppKw)}" 찾기</button>`
+      : `<p class="hint">마음에 드는 곳을 찾으면 아래 버튼으로 가게 이름을 넣고 <b>위치 찾기</b>를 누르면 지도 위치까지 저장돼요.</p>`}
     <button class="btn ghost" id="sAdd" style="width:100%;margin-top:8px">＋ 찾은 장소 저장하기</button>
   `);
   const so = $('#sOpenMap');
   if (so) so.onclick = () => {
     closeSheet(); showTab('map');
-    const mk = theme ? (theme.mapKw || theme.kw) : freeText;
-    $('#mapQ').value = (!useMyLoc && area ? area + ' ' : '') + mk;
+    $('#mapQ').value = (!useMyLoc && area ? area + ' ' : '') + inAppKw;
     MapView.search(theme ? theme.id : '');
   };
   $('#sAdd').onclick = () => openPlaceForm(null, theme ? theme.id : '');
@@ -1139,6 +1169,9 @@ const MapView = {
     this.add(data, true);
   },
   add(data, fit){
+    // 테마에 '이름만 같은 가게' 제외 목록이 있으면 빼기 (예: 이영자 맛집 → '이영자삼계탕' 제외)
+    const ex = (themeOf(this.themeId) || {}).exclude || [];
+    if (ex.length) data = data.filter(r => !ex.some(w => (r.place_name || '').includes(w)));
     this.results = this.results.concat(data);
     $('#mapInfo').textContent = this.results.length ? `${this.results.length}곳 찾음 · 핀이나 목록을 누르면 지도를 골라 열 수 있어요` : '결과가 없어요. 지도를 옮기거나 검색어를 바꿔 보세요.';
     this.drawResults(fit);

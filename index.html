@@ -152,7 +152,18 @@ nav.tabs button.on{color:var(--accent);font-weight:800}
 .view{display:none}.view.on{display:block}
 
 /* map */
-#map{width:100%;height:46vh;min-height:280px;border-radius:var(--radius);overflow:hidden;background:var(--line)}
+#map{position:relative;z-index:0;width:100%;height:52vh;min-height:300px;border-radius:var(--radius);overflow:hidden;background:var(--card2)}
+.mapbox{position:relative}
+.mapfab{position:absolute;right:10px;bottom:10px;z-index:5;width:42px;height:42px;border:0;border-radius:12px;background:var(--card);color:var(--ink);
+  box-shadow:0 2px 10px rgba(0,0,0,.2);font-size:20px;line-height:1}
+.mapbadge{position:absolute;left:10px;top:10px;z-index:5;background:var(--card);color:var(--sub);font-size:11.5px;font-weight:700;border-radius:8px;padding:3px 8px;box-shadow:0 1px 6px rgba(0,0,0,.15);pointer-events:none}
+.mapbadge:empty{display:none}
+.seg.prov button{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px}
+.pl{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-size:12px;font-weight:900}
+.pl.n{background:var(--naver);color:#fff}.pl.k{background:var(--kakao);color:var(--kakao-ink)}
+.mapnote{margin-top:10px;background:var(--soft);border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.55}
+.mapnote button{border:0;background:none;color:var(--accent);font-weight:800;padding:0;margin-left:4px;text-decoration:underline}
+.mapempty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--sub);font-size:13.5px;padding:20px}
 .mk{background:var(--c,var(--accent));color:#10161d;font-weight:800;font-size:12px;border-radius:999px;min-width:26px;height:26px;
   padding:0 7px;display:grid;place-items:center;border:2px solid #10161d;box-shadow:0 2px 8px rgba(0,0,0,.45)}
 .mk.saved{border-color:#fff}
@@ -251,25 +262,27 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
   <!-- ② 지도 -->
   <main class="view" id="v-map">
     <div class="section">
-      <div id="mapNoKey" class="card" style="display:none">
-        <h3 style="margin:0 0 6px">🗺️ 앱 안에서 지도를 보려면</h3>
-        <p class="hint" style="margin:0 0 10px">카카오 개발자 사이트에서 무료 <b>JavaScript 키</b>를 발급받아 설정에 넣으면, 이 화면에서 바로 지도·검색·저장을 할 수 있어요.<br>키가 없어도 <b>찾기</b> 탭에서 네이버지도·카카오맵 앱으로 바로 연결됩니다.</p>
-        <button class="btn primary" id="btnGoSettings">설정에서 키 입력</button>
+      <div class="seg prov" id="mapProv">
+        <button data-p="naver"><span class="pl n">N</span>네이버지도</button>
+        <button data-p="kakao"><span class="pl k">K</span>카카오맵</button>
       </div>
-      <div id="mapWrap" style="display:none">
-        <div class="row" style="margin-bottom:10px">
-          <input class="input" id="mapQ" placeholder="장소·키워드 검색 (예: 복권판매점)" autocomplete="off">
-          <button class="btn primary" id="btnMapSearch">검색</button>
-        </div>
-        <div class="radius" data-radius style="margin:0 0 10px"><span>반경</span></div>
+      <div class="mapnote" id="mapNote" hidden></div>
+      <div class="row" style="margin:10px 0">
+        <input class="input" id="mapQ" placeholder="장소·키워드 검색 (예: 칼국수, 복권판매점)" autocomplete="off">
+        <button class="btn primary" id="btnMapSearch">검색</button>
+      </div>
+      <div class="radius" data-radius style="margin:0 0 10px"><span>반경</span></div>
+      <div class="mapbox">
         <div id="map"></div>
-        <div class="row" style="margin:10px 0 4px;justify-content:space-between">
-          <div class="meta" id="mapInfo">지도를 움직인 뒤 검색하면 그 주변에서 찾아요.</div>
-          <button class="btn small ghost" id="btnShowSaved">⭐ 저장 표시</button>
-        </div>
-        <div id="mapResults"></div>
-        <div style="text-align:center"><button class="btn ghost" id="btnMore" style="display:none">결과 더 보기</button></div>
+        <button class="mapfab" id="btnMapMe" aria-label="내 위치로">◎</button>
+        <div class="mapbadge" id="mapEngine"></div>
       </div>
+      <div class="row" style="margin:10px 0 4px;justify-content:space-between">
+        <div class="meta" id="mapInfo">핀을 누르면 네이버지도·카카오맵 중에 골라서 열 수 있어요.</div>
+        <button class="btn small ghost" id="btnShowSaved">⭐ 저장 표시</button>
+      </div>
+      <div id="mapResults"></div>
+      <div style="text-align:center"><button class="btn ghost" id="btnMore" style="display:none">결과 더 보기</button></div>
     </div>
   </main>
 
@@ -346,7 +359,7 @@ const LS = {
 let themes   = LS.get('themes', null) || DEFAULT_THEMES.slice();
 let places   = LS.get('places', []);          // 저장한 장소
 let recents  = LS.get('recents', []);         // 최근 지역
-let settings = Object.assign({kakaoKey:'', openMode:'web', radius:3000, mode:'light'}, LS.get('settings', {}));
+let settings = Object.assign({kakaoKey:'', naverKey:'', mapProvider:'kakao', openMode:'web', radius:3000, mode:'light'}, LS.get('settings', {}));
 const RADII = [[500,'500m'],[1000,'1km'],[3000,'3km'],[5000,'5km'],[10000,'10km'],[20000,'20km']];
 function applyMode(){
   const dark = settings.mode === 'dark' || (settings.mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -420,7 +433,7 @@ function renderRadius(){
 document.addEventListener('click', e => {
   const b = e.target.closest('.rchip'); if (!b) return;
   settings.radius = +b.dataset.m; LS.set('settings', settings); renderRadius(); updateWhere(); if ($('#v-dash').classList.contains('on')) renderDash();
-  if (MapView.map && $('#mapQ').value.trim()) MapView.search(MapView.themeId);
+  if (MapView.map){ MapView.drawMe(); if ($('#mapQ').value.trim() && settings.kakaoKey) MapView.search(MapView.themeId); }
 });
 function updateWhere(){
   const w = $('#where'); if (!w) return;
@@ -474,7 +487,7 @@ async function useCurrentLocation(auto){
     if (await Kakao.ready()) myArea = await Kakao.areaName(myPos);
     st.textContent = '';   // 위치 표시는 상단 제목 아래에서 보여줌
     renderRegionChips();
-    if (MapView.map){ MapView.map.setCenter(new kakao.maps.LatLng(myPos.lat, myPos.lng)); MapView.drawMe(); }
+    if (MapView.map){ MapView.eng.setCenter(MapView.map, myPos); MapView.drawMe(); }
     if ($('#savedSort').value === 'dist') renderSaved();
     if ($('#v-dash').classList.contains('on')) renderDash();
   }catch(e){
@@ -916,81 +929,226 @@ const Kakao = {
   }
 };
 
+// ---------- 지도 엔진: 네이버 / 카카오 / 기본(OpenStreetMap) ----------
+// 같은 명령(가운데 옮기기, 핀 찍기, 원 그리기, 범위 맞추기)을 지도 종류별로 처리
+function loadScript(src){
+  return new Promise(res => { const s = document.createElement('script'); s.src = src;
+    s.onload = () => res(true); s.onerror = () => res(false); document.head.appendChild(s); });
+}
+const ACCENT = '#ff7a59';
+const Engines = {
+  kakao: {
+    label: '카카오맵',
+    load(){ return Kakao.ready(); },
+    create(el, c){
+      const m = new kakao.maps.Map(el, {center: new kakao.maps.LatLng(c.lat, c.lng), level: 5});
+      m.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT); return m; },
+    center(m){ const c = m.getCenter(); return {lat:c.getLat(), lng:c.getLng()}; },
+    setCenter(m, c){ m.setCenter(new kakao.maps.LatLng(c.lat, c.lng)); },
+    marker(m, c, html, z, onClick){
+      const box = document.createElement('div'); box.innerHTML = html; const node = box.firstChild;
+      if (onClick){ node.style.cursor = 'pointer'; node.addEventListener('click', onClick); }
+      const o = new kakao.maps.CustomOverlay({position: new kakao.maps.LatLng(c.lat, c.lng), content: node, zIndex: z, yAnchor: .5});
+      o.setMap(m); return () => o.setMap(null); },
+    circle(m, c, r){
+      const o = new kakao.maps.Circle({center: new kakao.maps.LatLng(c.lat, c.lng), radius: r, strokeWeight: 1.5,
+        strokeColor: ACCENT, strokeOpacity: .8, fillColor: ACCENT, fillOpacity: .07});
+      o.setMap(m); return () => o.setMap(null); },
+    fit(m, pts){ const b = new kakao.maps.LatLngBounds(); pts.forEach(p => b.extend(new kakao.maps.LatLng(p.lat, p.lng))); m.setBounds(b); },
+    relayout(m){ m.relayout(); }
+  },
+  naver: {
+    label: '네이버지도', _p: null, failed: false,
+    load(){
+      if (!settings.naverKey) return Promise.resolve(false);
+      if (this._p) return this._p;
+      // 키나 서비스 URL이 맞지 않으면 네이버가 이 함수를 불러줌
+      window.navermap_authFailure = () => { Engines.naver.failed = true;
+        toast('네이버 지도 인증에 실패했어요 (키·서비스 URL 확인)'); MapView.init(true); };
+      this._p = loadScript(`https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${enc(settings.naverKey)}`)
+        .then(ok => ok && !!(window.naver && naver.maps && naver.maps.Map));
+      return this._p; },
+    create(el, c){
+      return new naver.maps.Map(el, {center: new naver.maps.LatLng(c.lat, c.lng), zoom: 15, zoomControl: true,
+        zoomControlOptions: {position: naver.maps.Position.RIGHT_CENTER, style: naver.maps.ZoomControlStyle.SMALL}}); },
+    center(m){ const c = m.getCenter(); return {lat: c.lat(), lng: c.lng()}; },
+    setCenter(m, c){ m.setCenter(new naver.maps.LatLng(c.lat, c.lng)); },
+    marker(m, c, html, z, onClick){
+      const mk = new naver.maps.Marker({map: m, position: new naver.maps.LatLng(c.lat, c.lng), zIndex: z,
+        icon: {content: html, anchor: new naver.maps.Point(13, 13)}});
+      if (onClick) naver.maps.Event.addListener(mk, 'click', onClick);
+      return () => mk.setMap(null); },
+    circle(m, c, r){
+      const o = new naver.maps.Circle({map: m, center: new naver.maps.LatLng(c.lat, c.lng), radius: r,
+        strokeColor: ACCENT, strokeOpacity: .8, strokeWeight: 1.5, fillColor: ACCENT, fillOpacity: .07});
+      return () => o.setMap(null); },
+    fit(m, pts){
+      const lats = pts.map(p => p.lat), lngs = pts.map(p => p.lng);
+      m.fitBounds(new naver.maps.LatLngBounds(
+        new naver.maps.LatLng(Math.min(...lats), Math.min(...lngs)),
+        new naver.maps.LatLng(Math.max(...lats), Math.max(...lngs))), {top: 40, right: 40, bottom: 40, left: 40}); },
+    relayout(m, el){ m.setSize(new naver.maps.Size(el.clientWidth, el.clientHeight)); }
+  },
+  osm: {
+    label: '기본 지도', _p: null,
+    load(){
+      if (this._p) return this._p;
+      const css = document.createElement('link'); css.rel = 'stylesheet';
+      css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'; document.head.appendChild(css);
+      this._p = loadScript('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js').then(ok => ok && !!window.L);
+      return this._p; },
+    create(el, c){
+      const m = L.map(el, {zoomControl: true}).setView([c.lat, c.lng], 15);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution: '© OpenStreetMap'}).addTo(m);
+      return m; },
+    center(m){ const c = m.getCenter(); return {lat: c.lat, lng: c.lng}; },
+    setCenter(m, c){ m.setView([c.lat, c.lng], m.getZoom()); },
+    marker(m, c, html, z, onClick){
+      const mk = L.marker([c.lat, c.lng], {icon: L.divIcon({html, className: '', iconSize: [26, 26], iconAnchor: [13, 13]}),
+        zIndexOffset: z * 100}).addTo(m);
+      if (onClick) mk.on('click', onClick);
+      return () => mk.remove(); },
+    circle(m, c, r){ const o = L.circle([c.lat, c.lng], {radius: r, color: ACCENT, weight: 1.5, fillOpacity: .07}).addTo(m); return () => o.remove(); },
+    fit(m, pts){ m.fitBounds(pts.map(p => [p.lat, p.lng]), {padding: [40, 40], maxZoom: 16}); },
+    relayout(m){ m.invalidateSize(); }
+  }
+};
+
 const MapView = {
-  map: null, overlays: [], savedOverlays: [], showSaved: true, results: [], themeId: '', pg: null,
-  async init(){
-    const has = !!settings.kakaoKey;
-    $('#mapNoKey').style.display = has ? 'none' : 'block';
-    $('#mapWrap').style.display = has ? 'block' : 'none';
-    if (!has || this.map) { if (this.map) this.map.relayout(); return; }
-    if (!await Kakao.ready()){ $('#mapInfo').textContent = '지도를 불러오지 못했어요. 설정의 키와 카카오 개발자 사이트의 도메인 등록을 확인하세요.'; return; }
-    const center = myPos || {lat:37.5665, lng:126.9780};
-    this.map = new kakao.maps.Map($('#map'), {center: new kakao.maps.LatLng(center.lat, center.lng), level: 5});
-    this.map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
-    this.refreshSaved();
-    if (!myPos) locate().then(p => { this.map.setCenter(new kakao.maps.LatLng(p.lat, p.lng)); this.drawMe(); }).catch(()=>{});
-    else this.drawMe();
+  map: null, eng: null, engName: '', el: null,
+  marks: [], savedMarks: [], meRm: null, circleRm: null,
+  showSaved: true, results: [], themeId: '', pg: null, _busy: null,
+  provider(){ return settings.mapProvider === 'naver' ? 'naver' : 'kakao'; },
+  keyFor(p){ return p === 'naver' ? settings.naverKey : settings.kakaoKey; },
+  drawProviderUI(using){
+    const prov = this.provider(), name = Engines[prov].label;
+    $('#mapProv').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.p === prov));
+    const note = $('#mapNote');
+    if (using === prov){ note.hidden = true; }
+    else {
+      note.hidden = false;
+      note.innerHTML = `지금은 <b>기본 지도</b>로 보여드려요. <b>${name}</b> 화면으로 보려면 설정에 ${name} 키를 넣어 주세요.<button id="noteSet">키 넣기</button>
+        <div class="hint" style="margin-top:4px">핀을 누르면 네이버지도·카카오맵 앱으로는 지금도 바로 열 수 있어요.</div>`;
+      $('#noteSet').onclick = () => openSettings();
+    }
+    $('#mapEngine').textContent = using ? Engines[using].label + (using === 'osm' ? ' (OpenStreetMap)' : '') : '';
+  },
+  async init(force){
+    if (this._busy && !force) return this._busy;
+    this._busy = this._init(force).finally(() => { this._busy = null; });
+    return this._busy;
+  },
+  async _init(force){
+    const prov = this.provider();
+    let want = this.keyFor(prov) && !(prov === 'naver' && Engines.naver.failed) ? prov : 'osm';
+    if (this.map && this.engName === want && !force){ this.eng.relayout(this.map, this.el); this.drawProviderUI(want); return; }
+    // 이전 지도 치우기
+    this.map = null; this.marks = []; this.savedMarks = []; this.meRm = this.circleRm = null;
+    const box = $('#map'); box.innerHTML = '<div class="mapempty">지도를 불러오는 중…</div>';
+    let ok = await Engines[want].load();
+    if (!ok && want !== 'osm'){ toast(`${Engines[want].label}를 불러오지 못해 기본 지도로 보여드려요`); want = 'osm'; ok = await Engines.osm.load(); }
+    if (!ok){ box.innerHTML = '<div class="mapempty">지도를 불러오지 못했어요.<br>인터넷 연결을 확인해 주세요.</div>'; this.drawProviderUI(''); return; }
+    box.innerHTML = ''; const el = document.createElement('div'); el.style.cssText = 'position:absolute;inset:0'; box.appendChild(el);
+    this.el = el; this.eng = Engines[want]; this.engName = want;
+    this.map = this.eng.create(el, myPos || {lat: 37.5665, lng: 126.9780});
+    this.drawProviderUI(want);
+    this.drawMe(); this.refreshSaved();
+    if (this.results.length) this.drawResults(false);
+    if (!myPos) locate().then(p => { if (!this.map) return; this.eng.setCenter(this.map, p); this.drawMe(); }).catch(() => {});
   },
   drawMe(){
     if (!this.map || !myPos) return;
-    if (this.me) this.me.setMap(null);
-    this.me = new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(myPos.lat,myPos.lng), content:'<div class="mk me"></div>', zIndex:1});
-    this.me.setMap(this.map);
-  },
-  overlay(lat, lng, html, onClick, z){
-    const el = document.createElement('div'); el.innerHTML = html; const node = el.firstChild;
-    node.style.cursor = 'pointer'; node.addEventListener('click', onClick);
-    const o = new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(lat,lng), content:node, zIndex:z||2, yAnchor:.5});
-    o.setMap(this.map); return o;
+    if (this.meRm) this.meRm(); if (this.circleRm) this.circleRm();
+    this.circleRm = this.eng.circle(this.map, myPos, settings.radius);
+    this.meRm = this.eng.marker(this.map, myPos, '<div class="mk me"></div>', 1);
   },
   refreshSaved(){
     if (!this.map) return;
-    this.savedOverlays.forEach(o => o.setMap(null)); this.savedOverlays = [];
+    this.savedMarks.forEach(rm => rm()); this.savedMarks = [];
     if (!this.showSaved) return;
     places.filter(p => p.lat).forEach(p => {
-      this.savedOverlays.push(this.overlay(p.lat, p.lng, `<div class="mk saved" style="--c:${esc(themeColor(themeOf(p.theme)))}">★</div>`, () => {
-        openSheet(placeCard(p, {noEdit:true}));
-      }, 3));
+      this.savedMarks.push(this.eng.marker(this.map, p,
+        `<div class="mk saved" style="--c:${esc(themeColor(themeOf(p.theme)))}">★</div>`, 3,
+        () => { openSheet(placeCard(p, {noEdit: true})); fillPhotos($('#sheet')); }));
     });
+  },
+  resColor(){ const c = themeColor(themeOf(this.themeId)); return c === '#8a99a8' ? ACCENT : c; },
+  drawResults(fit){
+    this.marks.forEach(rm => rm()); this.marks = [];
+    this.results.forEach((r, i) => {
+      const c = {lat: +r.y, lng: +r.x};
+      this.marks.push(this.eng.marker(this.map, c, `<div class="mk" style="--c:${esc(this.resColor())}">${i + 1}</div>`, 2,
+        () => this.openResult(i)));
+    });
+    if (fit && this.results.length) this.eng.fit(this.map, this.results.map(r => ({lat: +r.y, lng: +r.x})));
+  },
+  resultPlace(r){ return {name: r.place_name, address: r.road_address_name || r.address_name, lat: +r.y, lng: +r.x,
+    kakaoUrl: r.place_url, phone: r.phone, category: (r.category_name || '').split(' > ').pop()}; },
+  // 핀을 누르면: 네이버지도 / 카카오맵 고르기
+  openResult(i){
+    const r = this.results[i], p = this.resultPlace(r);
+    const saved = places.some(x => x.kakaoUrl === r.place_url);
+    openSheet(`
+      <h2>${esc(p.name)}</h2>
+      <div class="q">${esc(p.category)} · ${esc(p.address)}${r.distance ? ' · ' + fmtDist(r.distance / 1000) : ''}${p.phone ? ' · ' + esc(p.phone) : ''}</div>
+      <div class="label" style="margin-top:0">어느 지도로 볼까요?</div>
+      <div class="bigbtns">
+        <a class="lnk naver" href="${esc(Links.naverSearch(placeQuery(p)))}" target="_blank" rel="noopener">N 네이버지도</a>
+        <a class="lnk kakao" href="${esc(r.place_url)}" target="_blank" rel="noopener">K 카카오맵</a>
+      </div>
+      <div class="actions">
+        <a class="lnk plain" href="${esc(Links.kakaoRoute(p))}" target="_blank" rel="noopener">🚗 길찾기</a>
+        <button class="lnk plain" id="resSave">${saved ? '⭐ 저장됨' : '☆ 내 명소에 저장'}</button>
+      </div>`);
+    $('#resSave').onclick = () => {
+      if (saved) return toast('이미 저장한 곳이에요');
+      openPlaceForm(null, this.themeId, p);
+    };
   },
   async search(themeId){
     await this.init(); if (!this.map) return;
     this.themeId = themeId || '';
     const q = $('#mapQ').value.trim(); if (!q) return toast('검색어를 입력하세요');
-    const c = this.map.getCenter();
-    // 검색어에 지역명이 없으면 지금 보고 있는 지도 주변에서 거리순 검색
+    // 카카오 키가 없으면 앱 안 검색 대신 지도 앱으로 연결
+    if (!settings.kakaoKey){
+      const area = useMyLoc ? '' : currentArea();
+      const full = (area && !q.startsWith(area) ? area + ' ' : '') + q;
+      openSheet(`
+        <h2>🔎 "${esc(full)}"</h2>
+        <div class="q">어느 지도에서 찾아볼까요?</div>
+        <div class="bigbtns">
+          <a class="lnk naver" href="${esc(Links.naverSearch(full))}" target="_blank" rel="noopener">N 네이버지도</a>
+          <a class="lnk kakao" href="${esc(Links.kakaoSearch(full, useMyLoc ? myPos : null))}" target="_blank" rel="noopener">K 카카오맵</a>
+        </div>
+        <p class="hint" style="margin-top:12px">카카오 키를 넣으면 검색 결과를 이 지도 위에 핀으로 바로 보여드려요.</p>`);
+      return;
+    }
+    if (!await Kakao.ready()) return toast('카카오 키를 확인해 주세요');
+    const c = this.eng.center(this.map);
     const hasRegion = !useMyLoc && currentArea() && q.startsWith(currentArea());
-    const opt = hasRegion ? {} : {location:c, radius:settings.radius, sort:kakao.maps.services.SortBy.DISTANCE};
+    const opt = hasRegion ? {} : {location: new kakao.maps.LatLng(c.lat, c.lng), radius: settings.radius, sort: kakao.maps.services.SortBy.DISTANCE};
+    this._lastOpt = opt;
     $('#mapInfo').textContent = '검색 중…';
-    this.results = []; this.overlays.forEach(o => o.setMap(null)); this.overlays = [];
+    this.results = [];
     const data = await Kakao.keyword(q, opt);
     this.pg = Kakao._pg;
     this.add(data, true);
   },
   add(data, fit){
-    const start = this.results.length;
     this.results = this.results.concat(data);
-    $('#mapInfo').textContent = this.results.length ? `${this.results.length}곳 찾음` : '결과가 없어요. 지도를 옮기거나 검색어를 바꿔 보세요.';
-    const bounds = new kakao.maps.LatLngBounds();
-    data.forEach((r,i) => {
-      const n = start + i + 1;
-      this.overlays.push(this.overlay(+r.y, +r.x, `<div class="mk" style="--c:${esc(themeColor(themeOf(this.themeId)) === '#8a99a8' ? '#ff7a59' : themeColor(themeOf(this.themeId)))}">${n}</div>`, () => {
-        const el = document.querySelector(`[data-res="${start+i}"]`); if (el) el.scrollIntoView({behavior:'smooth', block:'center'});
-      }));
-      bounds.extend(new kakao.maps.LatLng(+r.y, +r.x));
-    });
-    if (fit && data.length) this.map.setBounds(bounds);
-    $('#mapResults').innerHTML = this.results.map((r,i) => {
-      const p = {name:r.place_name, address:r.road_address_name||r.address_name, lat:+r.y, lng:+r.x, kakaoUrl:r.place_url};
+    $('#mapInfo').textContent = this.results.length ? `${this.results.length}곳 찾음 · 핀이나 목록을 누르면 지도를 골라 열 수 있어요` : '결과가 없어요. 지도를 옮기거나 검색어를 바꿔 보세요.';
+    this.drawResults(fit);
+    $('#mapResults').innerHTML = this.results.map((r, i) => {
+      const p = this.resultPlace(r);
       const saved = places.some(x => x.kakaoUrl === r.place_url);
-      return `<div class="card place" data-res="${i}">
-        <span class="badge">${i+1}</span><span class="meta">${esc(r.category_name.split(' > ').slice(-1)[0])}</span>
-        <h3>${esc(r.place_name)}</h3>
-        <div class="meta">${esc(p.address)}${r.distance ? ' · '+fmtDist(r.distance/1000) : ''}${r.phone ? ' · '+esc(r.phone) : ''}</div>
+      return `<div class="card place" data-res="${i}" style="--c:${esc(this.resColor())}">
+        <span class="badge" style="--c:${esc(this.resColor())}">${i + 1}</span><span class="meta">${esc(p.category)}</span>
+        <h3>${esc(p.name)}</h3>
+        <div class="meta">${esc(p.address)}${r.distance ? ' · ' + fmtDist(r.distance / 1000) : ''}${p.phone ? ' · ' + esc(p.phone) : ''}</div>
         <div class="actions">
           <button class="lnk plain" data-save="${i}">${saved ? '⭐ 저장됨' : '☆ 저장'}</button>
           <a class="lnk naver" href="${esc(Links.naverSearch(placeQuery(p)))}" target="_blank" rel="noopener">네이버</a>
-          <a class="lnk kakao" href="${esc(r.place_url)}" target="_blank" rel="noopener">카카오 상세</a>
+          <a class="lnk kakao" href="${esc(r.place_url)}" target="_blank" rel="noopener">카카오</a>
           <a class="lnk plain" href="${esc(Links.kakaoRoute(p))}" target="_blank" rel="noopener">🚗 길찾기</a>
         </div></div>`;
     }).join('');
@@ -998,15 +1156,20 @@ const MapView = {
   },
   more(){
     if (!this.pg || !this.pg.hasNextPage) return;
-    const pg = this.pg;
-    // pagination.nextPage()는 원래 콜백을 다시 부르므로, Kakao.keyword 대신 직접 처리
     const ps = new kakao.maps.services.Places();
     ps.keywordSearch($('#mapQ').value.trim(), (data, status, npg) => {
       this.pg = npg; if (status === kakao.maps.services.Status.OK) this.add(data, false);
-    }, Object.assign({page: pg.current + 1}, (!useMyLoc && currentArea() && $('#mapQ').value.trim().startsWith(currentArea())) ? {} :
-      {location:this.map.getCenter(), radius:settings.radius, sort:kakao.maps.services.SortBy.DISTANCE}));
+    }, Object.assign({page: this.pg.current + 1}, this._lastOpt || {}));
   }
 };
+$('#mapProv').addEventListener('click', e => {
+  const b = e.target.closest('[data-p]'); if (!b) return;
+  settings.mapProvider = b.dataset.p; LS.set('settings', settings); MapView.init(true);
+});
+$('#btnMapMe').addEventListener('click', async () => {
+  try{ if (!myPos) await locate(); }catch(e){ return toast(e.message); }
+  if (MapView.map){ MapView.eng.setCenter(MapView.map, myPos); MapView.drawMe(); }
+});
 $('#btnMapSearch').addEventListener('click', () => MapView.search(MapView.themeId));
 $('#mapQ').addEventListener('keydown', e => { if (e.key === 'Enter') MapView.search(MapView.themeId); });
 $('#btnMore').addEventListener('click', () => MapView.more());
@@ -1015,15 +1178,15 @@ $('#btnShowSaved').addEventListener('click', () => {
   $('#btnShowSaved').textContent = MapView.showSaved ? '⭐ 저장 표시' : '☆ 저장 숨김';
 });
 $('#mapResults').addEventListener('click', e => {
-  const b = e.target.closest('[data-save]'); if (!b) return;
-  const r = MapView.results[+b.dataset.save];
-  if (places.some(x => x.kakaoUrl === r.place_url)) return toast('이미 저장한 곳이에요');
-  openPlaceForm(null, MapView.themeId, {
-    name:r.place_name, address:r.road_address_name||r.address_name, lat:+r.y, lng:+r.x,
-    kakaoUrl:r.place_url, phone:r.phone, category:r.category_name.split(' > ').pop()
-  });
+  const b = e.target.closest('[data-save]');
+  if (b){
+    const r = MapView.results[+b.dataset.save];
+    if (places.some(x => x.kakaoUrl === r.place_url)) return toast('이미 저장한 곳이에요');
+    return openPlaceForm(null, MapView.themeId, MapView.resultPlace(r));
+  }
+  const card = e.target.closest('[data-res]');
+  if (card && !e.target.closest('a,button')) MapView.openResult(+card.dataset.res);
 });
-$('#btnGoSettings').addEventListener('click', () => openSettings());
 
 // ---------- 대시보드 ----------
 function renderDash(){
@@ -1136,9 +1299,12 @@ function openSettings(){
         <button data-m="app" class="${settings.openMode==='app'?'on':''}">지도 앱으로 열기</button>
       </div>
       <div class="hint" style="margin-top:5px">‘지도 앱으로 열기’는 휴대폰에 네이버지도·카카오맵 앱이 설치돼 있어야 해요.</div></div>
-    <div class="field"><label>카카오 JavaScript 키 (선택)</label>
+    <div class="field"><label><span class="pl k" style="display:inline-grid;margin-right:4px">K</span>카카오 JavaScript 키 (선택)</label>
       <input class="input" id="sKey" value="${esc(settings.kakaoKey)}" placeholder="예: 1a2b3c4d5e…" autocomplete="off">
-      <div class="hint" style="margin-top:5px">넣으면 ‘지도’ 탭에서 앱 안 지도·검색·장소 위치 저장이 켜져요. 발급 방법은 README 참고.</div></div>
+      <div class="hint" style="margin-top:5px">카카오맵 화면, 앱 안 장소 검색, 동 이름 자동 표시, 장소 위치 저장이 켜져요.</div></div>
+    <div class="field"><label><span class="pl n" style="display:inline-grid;margin-right:4px">N</span>네이버 지도 Client ID (선택)</label>
+      <input class="input" id="sNKey" value="${esc(settings.naverKey)}" placeholder="네이버 클라우드에서 받은 Client ID" autocomplete="off">
+      <div class="hint" style="margin-top:5px">지도 탭에서 네이버지도 화면으로 보여줘요. 장소 검색은 카카오 키로 해요. 발급 방법은 README 참고.</div></div>
     <button class="btn primary" id="sSave" style="width:100%">설정 저장</button>
     <hr>
     <div class="label" style="margin-top:0">데이터 백업 (저장 장소·테마)</div>
@@ -1157,9 +1323,9 @@ function openSettings(){
   $('#sMode').onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; mode = b.dataset.m;
     $('#sMode').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
   $('#sSave').onclick = () => {
-    const newKey = $('#sKey').value.trim();
-    const keyChanged = newKey !== settings.kakaoKey;
-    settings.openMode = mode; settings.kakaoKey = newKey; LS.set('settings', settings);
+    const newKey = $('#sKey').value.trim(), newN = $('#sNKey').value.trim();
+    const keyChanged = newKey !== settings.kakaoKey || newN !== settings.naverKey;
+    settings.openMode = mode; settings.kakaoKey = newKey; settings.naverKey = newN; LS.set('settings', settings);
     closeSheet(); toast('설정을 저장했어요');
     if (keyChanged) setTimeout(() => location.reload(), 500);   // 새 키로 지도 다시 불러오기
   };

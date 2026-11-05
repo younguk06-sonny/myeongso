@@ -359,6 +359,10 @@ const LS = {
 let themes   = LS.get('themes', null) || DEFAULT_THEMES.slice();
 let places   = LS.get('places', []);          // 저장한 장소
 let recents  = LS.get('recents', []);         // 최근 지역
+// 앱에 기본으로 들어 있는 카카오 JavaScript 키 (https://younguk06-sonny.github.io 에서만 동작)
+// 설정에서 다른 키를 넣으면 그 키를 우선 사용
+const BUILTIN_KAKAO_KEY = '76e1f2c0c1f996041b2d1c9441792ea1';
+function kakaoKey(){ return settings.kakaoKey || BUILTIN_KAKAO_KEY; }
 let settings = Object.assign({kakaoKey:'', naverKey:'', mapProvider:'kakao', openMode:'web', radius:3000, mode:'light'}, LS.get('settings', {}));
 const RADII = [[500,'500m'],[1000,'1km'],[3000,'3km'],[5000,'5km'],[10000,'10km'],[20000,'20km']];
 function applyMode(){
@@ -433,7 +437,7 @@ function renderRadius(){
 document.addEventListener('click', e => {
   const b = e.target.closest('.rchip'); if (!b) return;
   settings.radius = +b.dataset.m; LS.set('settings', settings); renderRadius(); updateWhere(); if ($('#v-dash').classList.contains('on')) renderDash();
-  if (MapView.map){ MapView.drawMe(); if ($('#mapQ').value.trim() && settings.kakaoKey) MapView.search(MapView.themeId); }
+  if (MapView.map){ MapView.drawMe(); if ($('#mapQ').value.trim() && kakaoKey()) MapView.search(MapView.themeId); }
 });
 function updateWhere(){
   const w = $('#where'); if (!w) return;
@@ -564,7 +568,7 @@ function openSearchSheet(theme, freeText){
   const where = useMyLoc ? (myArea || '내 주변') : (area || '지역 미지정');
   const extra = (theme && theme.extra || []).map(x =>
     `<a class="lnk plain" href="${esc(x.url)}" target="_blank" rel="noopener">🔗 ${esc(x.label)}</a>`).join('');
-  const hasKey = !!settings.kakaoKey;
+  const hasKey = !!kakaoKey();
   openSheet(`
     <h2>${theme ? esc(theme.em)+' '+esc(theme.name) : '🔎 직접 검색'}</h2>
     <div class="q">📍 ${esc(where)} · 검색어 "<b>${esc(q)}</b>"</div>
@@ -845,7 +849,7 @@ function themeOptions(sel){
 // 장소 추가/수정 폼. prefill: 카카오 검색결과 등
 function openPlaceForm(existing, themeId, prefill){
   const p = existing || Object.assign({name:'', address:'', region:currentArea(), memo:'', theme:themeId||''}, prefill || {});
-  const canLookup = !!settings.kakaoKey && !existing && !prefill;
+  const canLookup = !!kakaoKey() && !existing && !prefill;
   openSheet(`
     <h2>${existing ? '장소 수정' : '장소 저장'}</h2>
     <div class="field"><label>가게·장소 이름</label>
@@ -857,7 +861,7 @@ function openPlaceForm(existing, themeId, prefill){
     <div class="field"><label>테마</label><select class="input" id="pTheme">${themeOptions(p.theme)}</select></div>
     <div class="field"><label>메모</label>
       <textarea class="input" id="pMemo" placeholder="예: 2024.3 전현무계획 방송, 칼국수+수육 추천, 주차 어려움">${esc(p.memo)}</textarea></div>
-    <div class="hint" id="pCoord" style="margin:-4px 0 10px">${p.lat ? '📍 지도 위치가 저장돼요' : (settings.kakaoKey ? '‘위치 찾기’를 누르면 지도 위치까지 저장돼요 (길찾기·거리순 정렬 가능)' : '이름+지역으로 지도에서 검색해 열어줘요')}</div>
+    <div class="hint" id="pCoord" style="margin:-4px 0 10px">${p.lat ? '📍 지도 위치가 저장돼요' : (kakaoKey() ? '‘위치 찾기’를 누르면 지도 위치까지 저장돼요 (길찾기·거리순 정렬 가능)' : '이름+지역으로 지도에서 검색해 열어줘요')}</div>
     <button class="btn primary" id="pSave" style="width:100%">저장</button>
   `);
   let coord = p.lat ? {lat:p.lat, lng:p.lng, kakaoUrl:p.kakaoUrl, phone:p.phone, category:p.category} : null;
@@ -896,11 +900,11 @@ function openPlaceForm(existing, themeId, prefill){
 const Kakao = {
   _p: null,
   ready(){
-    if (!settings.kakaoKey) return Promise.resolve(false);
+    if (!kakaoKey()) return Promise.resolve(false);
     if (this._p) return this._p;
     this._p = new Promise(resolve => {
       const s = document.createElement('script');
-      s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${enc(settings.kakaoKey)}&libraries=services&autoload=false`;
+      s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${enc(kakaoKey())}&libraries=services&autoload=false`;
       s.onload = () => { try{ kakao.maps.load(() => resolve(true)); }catch(e){ resolve(false); } };
       s.onerror = () => { toast('카카오 지도를 불러오지 못했어요 (키·도메인 등록 확인)'); this._p = null; resolve(false); };
       document.head.appendChild(s);
@@ -1019,7 +1023,7 @@ const MapView = {
   marks: [], savedMarks: [], meRm: null, circleRm: null,
   showSaved: true, results: [], themeId: '', pg: null, _busy: null,
   provider(){ return settings.mapProvider === 'naver' ? 'naver' : 'kakao'; },
-  keyFor(p){ return p === 'naver' ? settings.naverKey : settings.kakaoKey; },
+  keyFor(p){ return p === 'naver' ? settings.naverKey : kakaoKey(); },
   drawProviderUI(using){
     const prov = this.provider(), name = Engines[prov].label;
     $('#mapProv').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.p === prov));
@@ -1110,7 +1114,7 @@ const MapView = {
     this.themeId = themeId || '';
     const q = $('#mapQ').value.trim(); if (!q) return toast('검색어를 입력하세요');
     // 카카오 키가 없으면 앱 안 검색 대신 지도 앱으로 연결
-    if (!settings.kakaoKey){
+    if (!kakaoKey()){
       const area = useMyLoc ? '' : currentArea();
       const full = (area && !q.startsWith(area) ? area + ' ' : '') + q;
       openSheet(`
@@ -1300,7 +1304,7 @@ function openSettings(){
       </div>
       <div class="hint" style="margin-top:5px">‘지도 앱으로 열기’는 휴대폰에 네이버지도·카카오맵 앱이 설치돼 있어야 해요.</div></div>
     <div class="field"><label><span class="pl k" style="display:inline-grid;margin-right:4px">K</span>카카오 JavaScript 키 (선택)</label>
-      <input class="input" id="sKey" value="${esc(settings.kakaoKey)}" placeholder="예: 1a2b3c4d5e…" autocomplete="off">
+      <input class="input" id="sKey" value="${esc(settings.kakaoKey)}" placeholder="비워두면 앱 기본 키 사용" autocomplete="off">
       <div class="hint" style="margin-top:5px">카카오맵 화면, 앱 안 장소 검색, 동 이름 자동 표시, 장소 위치 저장이 켜져요.</div></div>
     <div class="field"><label><span class="pl n" style="display:inline-grid;margin-right:4px">N</span>네이버 지도 Client ID (선택)</label>
       <input class="input" id="sNKey" value="${esc(settings.naverKey)}" placeholder="네이버 클라우드에서 받은 Client ID" autocomplete="off">

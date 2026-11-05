@@ -262,10 +262,6 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
   <!-- ② 지도 -->
   <main class="view" id="v-map">
     <div class="section">
-      <div class="seg prov" id="mapProv">
-        <button data-p="naver"><span class="pl n">N</span>네이버지도</button>
-        <button data-p="kakao"><span class="pl k">K</span>카카오맵</button>
-      </div>
       <div class="mapnote" id="mapNote" hidden></div>
       <div class="row" style="margin:10px 0">
         <input class="input" id="mapQ" placeholder="장소·키워드 검색 (예: 칼국수, 복권판매점)" autocomplete="off">
@@ -278,7 +274,7 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
         <div class="mapbadge" id="mapEngine"></div>
       </div>
       <div class="row" style="margin:10px 0 4px;justify-content:space-between">
-        <div class="meta" id="mapInfo">핀을 누르면 네이버지도·카카오맵 중에 골라서 열 수 있어요.</div>
+        <div class="meta" id="mapInfo">핀을 누르면 카카오맵·네이버지도 앱으로 열 수 있어요.</div>
         <button class="btn small ghost" id="btnShowSaved">⭐ 저장 표시</button>
       </div>
       <div id="mapResults"></div>
@@ -377,7 +373,8 @@ let recents  = LS.get('recents', []);         // 최근 지역
 // 설정에서 다른 키를 넣으면 그 키를 우선 사용
 const BUILTIN_KAKAO_KEY = '76e1f2c0c1f996041b2d1c9441792ea1';
 function kakaoKey(){ return settings.kakaoKey || BUILTIN_KAKAO_KEY; }
-let settings = Object.assign({kakaoKey:'', naverKey:'', mapProvider:'kakao', openMode:'web', radius:3000, mode:'light'}, LS.get('settings', {}));
+let settings = Object.assign({kakaoKey:'', openMode:'web', radius:3000, mode:'light'}, LS.get('settings', {}));
+delete settings.naverKey; delete settings.mapProvider;   // 네이버 지도 화면 기능은 요금 문제로 제거
 const RADII = [[500,'500m'],[1000,'1km'],[3000,'3km'],[5000,'5km'],[10000,'10km'],[20000,'20km']];
 function applyMode(){
   const dark = settings.mode === 'dark' || (settings.mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -963,7 +960,7 @@ const Kakao = {
   }
 };
 
-// ---------- 지도 엔진: 네이버 / 카카오 / 기본(OpenStreetMap) ----------
+// ---------- 지도 엔진: 카카오맵 (불러오지 못하면 기본 지도 OpenStreetMap) ----------
 // 같은 명령(가운데 옮기기, 핀 찍기, 원 그리기, 범위 맞추기)을 지도 종류별로 처리
 function loadScript(src){
   return new Promise(res => { const s = document.createElement('script'); s.src = src;
@@ -990,38 +987,6 @@ const Engines = {
       o.setMap(m); return () => o.setMap(null); },
     fit(m, pts){ const b = new kakao.maps.LatLngBounds(); pts.forEach(p => b.extend(new kakao.maps.LatLng(p.lat, p.lng))); m.setBounds(b); },
     relayout(m){ m.relayout(); }
-  },
-  naver: {
-    label: '네이버지도', _p: null, failed: false,
-    load(){
-      if (!settings.naverKey) return Promise.resolve(false);
-      if (this._p) return this._p;
-      // 키나 서비스 URL이 맞지 않으면 네이버가 이 함수를 불러줌
-      window.navermap_authFailure = () => { Engines.naver.failed = true;
-        toast('네이버 지도 인증에 실패했어요 (키·서비스 URL 확인)'); MapView.init(true); };
-      this._p = loadScript(`https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${enc(settings.naverKey)}`)
-        .then(ok => ok && !!(window.naver && naver.maps && naver.maps.Map));
-      return this._p; },
-    create(el, c){
-      return new naver.maps.Map(el, {center: new naver.maps.LatLng(c.lat, c.lng), zoom: 15, zoomControl: true,
-        zoomControlOptions: {position: naver.maps.Position.RIGHT_CENTER, style: naver.maps.ZoomControlStyle.SMALL}}); },
-    center(m){ const c = m.getCenter(); return {lat: c.lat(), lng: c.lng()}; },
-    setCenter(m, c){ m.setCenter(new naver.maps.LatLng(c.lat, c.lng)); },
-    marker(m, c, html, z, onClick){
-      const mk = new naver.maps.Marker({map: m, position: new naver.maps.LatLng(c.lat, c.lng), zIndex: z,
-        icon: {content: html, anchor: new naver.maps.Point(13, 13)}});
-      if (onClick) naver.maps.Event.addListener(mk, 'click', onClick);
-      return () => mk.setMap(null); },
-    circle(m, c, r){
-      const o = new naver.maps.Circle({map: m, center: new naver.maps.LatLng(c.lat, c.lng), radius: r,
-        strokeColor: ACCENT, strokeOpacity: .8, strokeWeight: 1.5, fillColor: ACCENT, fillOpacity: .07});
-      return () => o.setMap(null); },
-    fit(m, pts){
-      const lats = pts.map(p => p.lat), lngs = pts.map(p => p.lng);
-      m.fitBounds(new naver.maps.LatLngBounds(
-        new naver.maps.LatLng(Math.min(...lats), Math.min(...lngs)),
-        new naver.maps.LatLng(Math.max(...lats), Math.max(...lngs))), {top: 40, right: 40, bottom: 40, left: 40}); },
-    relayout(m, el){ m.setSize(new naver.maps.Size(el.clientWidth, el.clientHeight)); }
   },
   osm: {
     label: '기본 지도', _p: null,
@@ -1052,18 +1017,13 @@ const MapView = {
   map: null, eng: null, engName: '', el: null,
   marks: [], savedMarks: [], meRm: null, circleRm: null,
   showSaved: true, results: [], themeId: '', pg: null, _busy: null,
-  provider(){ return settings.mapProvider === 'naver' ? 'naver' : 'kakao'; },
-  keyFor(p){ return p === 'naver' ? settings.naverKey : kakaoKey(); },
   drawProviderUI(using){
-    const prov = this.provider(), name = Engines[prov].label;
-    $('#mapProv').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.p === prov));
     const note = $('#mapNote');
-    if (using === prov){ note.hidden = true; }
+    if (using === 'kakao' || !using){ note.hidden = true; }
     else {
       note.hidden = false;
-      note.innerHTML = `지금은 <b>기본 지도</b>로 보여드려요. <b>${name}</b> 화면으로 보려면 설정에 ${name} 키를 넣어 주세요.<button id="noteSet">키 넣기</button>
-        <div class="hint" style="margin-top:4px">핀을 누르면 네이버지도·카카오맵 앱으로는 지금도 바로 열 수 있어요.</div>`;
-      $('#noteSet').onclick = () => openSettings();
+      note.innerHTML = `카카오맵을 불러오지 못해 <b>기본 지도</b>로 보여드려요. 잠시 뒤 다시 열어 보세요.
+        <div class="hint" style="margin-top:4px">핀을 누르면 카카오맵·네이버지도 앱으로는 지금도 바로 열 수 있어요.</div>`;
     }
     $('#mapEngine').textContent = using ? Engines[using].label + (using === 'osm' ? ' (OpenStreetMap)' : '') : '';
   },
@@ -1073,8 +1033,7 @@ const MapView = {
     return this._busy;
   },
   async _init(force){
-    const prov = this.provider();
-    let want = this.keyFor(prov) && !(prov === 'naver' && Engines.naver.failed) ? prov : 'osm';
+    let want = kakaoKey() ? 'kakao' : 'osm';
     if (this.map && this.engName === want && !force){ this.eng.relayout(this.map, this.el); this.drawProviderUI(want); return; }
     // 이전 지도 치우기
     this.map = null; this.marks = []; this.savedMarks = []; this.meRm = this.circleRm = null;
@@ -1199,10 +1158,6 @@ const MapView = {
     }, Object.assign({page: this.pg.current + 1}, this._lastOpt || {}));
   }
 };
-$('#mapProv').addEventListener('click', e => {
-  const b = e.target.closest('[data-p]'); if (!b) return;
-  settings.mapProvider = b.dataset.p; LS.set('settings', settings); MapView.init(true);
-});
 $('#btnMapMe').addEventListener('click', async () => {
   try{ if (!myPos) await locate(); }catch(e){ return toast(e.message); }
   if (MapView.map){ MapView.eng.setCenter(MapView.map, myPos); MapView.drawMe(); }
@@ -1339,9 +1294,6 @@ function openSettings(){
     <div class="field"><label><span class="pl k" style="display:inline-grid;margin-right:4px">K</span>카카오 JavaScript 키 (선택)</label>
       <input class="input" id="sKey" value="${esc(settings.kakaoKey)}" placeholder="비워두면 앱 기본 키 사용" autocomplete="off">
       <div class="hint" style="margin-top:5px">카카오맵 화면, 앱 안 장소 검색, 동 이름 자동 표시, 장소 위치 저장이 켜져요.</div></div>
-    <div class="field"><label><span class="pl n" style="display:inline-grid;margin-right:4px">N</span>네이버 지도 Client ID (선택)</label>
-      <input class="input" id="sNKey" value="${esc(settings.naverKey)}" placeholder="네이버 클라우드에서 받은 Client ID" autocomplete="off">
-      <div class="hint" style="margin-top:5px">지도 탭에서 네이버지도 화면으로 보여줘요. 장소 검색은 카카오 키로 해요. 발급 방법은 README 참고.</div></div>
     <button class="btn primary" id="sSave" style="width:100%">설정 저장</button>
     <hr>
     <div class="label" style="margin-top:0">데이터 백업 (저장 장소·테마)</div>
@@ -1360,9 +1312,9 @@ function openSettings(){
   $('#sMode').onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; mode = b.dataset.m;
     $('#sMode').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
   $('#sSave').onclick = () => {
-    const newKey = $('#sKey').value.trim(), newN = $('#sNKey').value.trim();
-    const keyChanged = newKey !== settings.kakaoKey || newN !== settings.naverKey;
-    settings.openMode = mode; settings.kakaoKey = newKey; settings.naverKey = newN; LS.set('settings', settings);
+    const newKey = $('#sKey').value.trim();
+    const keyChanged = newKey !== settings.kakaoKey;
+    settings.openMode = mode; settings.kakaoKey = newKey; LS.set('settings', settings);
     closeSheet(); toast('설정을 저장했어요');
     if (keyChanged) setTimeout(() => location.reload(), 500);   // 새 키로 지도 다시 불러오기
   };

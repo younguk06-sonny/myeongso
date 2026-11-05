@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>명소찾기</title>
 <meta name="description" content="TV 맛집·로또 명당 등 내가 찾는 명소를 네이버지도·카카오맵으로 바로 찾고 저장하는 앱">
-<meta name="theme-color" content="#ff6a4d">
+<meta name="theme-color" content="#f3f5f8">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -13,19 +13,25 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="명소찾기">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script>
+try{ var _s = JSON.parse(localStorage.getItem('ms_settings')||'{}'), _m = _s.mode || 'light';
+  if (_m === 'dark' || (_m === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.dataset.theme = 'dark';
+}catch(e){}
+</script>
 <style>
+/* 기본: 라이트 (코랄/앰버 포인트) */
 :root{
-  --bg:#f6f4f1; --card:#ffffff; --ink:#1d1b19; --sub:#6f6a64; --line:#e8e3dd;
-  --accent:#ff6a4d; --accent2:#ffa63f; --accent-ink:#ffffff; --soft:#fff1ec;
+  --bg:#f3f5f8; --bg2:#e9edf2; --card:#ffffff; --card2:#f2f5f9; --ink:#16202a; --sub:#647384; --line:#dde3ea;
+  --accent:#ff7a59; --accent2:#ffb347; --accent-ink:#ffffff; --soft:rgba(255,122,89,.12);
   --naver:#03c75a; --kakao:#fee500; --kakao-ink:#191919;
-  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 14px rgba(0,0,0,.05);
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 14px rgba(0,0,0,.06);
   --radius:16px;
 }
-@media (prefers-color-scheme: dark){
-  :root{
-    --bg:#151413; --card:#211f1d; --ink:#f3efea; --sub:#a59e96; --line:#34302c;
-    --soft:#3a2620; --shadow:none;
-  }
+/* 설정에서 '다크' 선택 시 */
+:root[data-theme="dark"]{
+  --bg:#10161d; --bg2:#0b1016; --card:#18212b; --card2:#1f2a36; --ink:#edf2f6; --sub:#8a99a8; --line:#2a3644;
+  --accent-ink:#1a0f0a; --soft:rgba(255,122,89,.14);
+  --shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 6px 18px rgba(0,0,0,.25);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);
@@ -37,10 +43,20 @@ a{color:inherit}
 .app{max-width:640px;margin:0 auto;min-height:100vh;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
 
 /* header */
-header{position:sticky;top:0;z-index:20;background:var(--bg);
-  padding:calc(10px + env(safe-area-inset-top)) 16px 10px;display:flex;align-items:center;gap:10px}
-header img{width:30px;height:30px;border-radius:8px}
-header h1{font-size:19px;margin:0;font-weight:800;letter-spacing:-.3px;flex:1}
+header{position:sticky;top:0;z-index:20;background:linear-gradient(var(--bg) 80%, transparent);
+  padding:calc(12px + env(safe-area-inset-top)) 16px 12px;display:flex;align-items:center;gap:11px}
+header img{width:34px;height:34px;border-radius:10px}
+header .ttl{flex:1;min-width:0}
+header h1{font-size:19px;margin:0;font-weight:800;letter-spacing:-.4px;line-height:1.2}
+header .where{font-size:12.5px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .where b{color:var(--accent);font-weight:700}
+
+/* 반경 */
+.radius{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-top:10px}
+.radius::-webkit-scrollbar{display:none}
+.radius span{font-size:12px;color:var(--sub);align-self:center;margin-right:2px;white-space:nowrap}
+.rchip{flex:0 0 auto;border:0;background:var(--card2);color:var(--sub);border-radius:10px;padding:6px 11px;font-size:13px;font-weight:700}
+.rchip.on{background:var(--accent);color:var(--accent-ink)}
 .icon-btn{border:0;background:var(--card);width:38px;height:38px;border-radius:12px;box-shadow:var(--shadow);
   display:grid;place-items:center;font-size:18px}
 
@@ -66,9 +82,14 @@ header h1{font-size:19px;margin:0;font-weight:800;letter-spacing:-.3px;flex:1}
 /* theme grid */
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 @media (min-width:520px){.grid{grid-template-columns:repeat(4,1fr)}}
-.theme{position:relative;border:0;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
-  padding:14px 6px 12px;display:flex;flex-direction:column;align-items:center;gap:4px;min-height:92px}
-.theme .em{font-size:28px;line-height:1.1}
+.theme{--c:var(--accent);position:relative;border:0;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:13px 6px 11px;display:flex;flex-direction:column;align-items:center;gap:6px;min-height:96px;overflow:hidden}
+.theme::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--c);opacity:.85}
+.theme .em{font-size:24px;line-height:1;width:44px;height:44px;border-radius:14px;display:grid;place-items:center;
+  background:color-mix(in srgb, var(--c) 20%, transparent)}
+.theme:active{transform:scale(.97)}
+.theme.add::after{display:none}
+.theme.add .em{background:none}
 .theme .nm{font-size:13px;font-weight:700;text-align:center;word-break:keep-all;line-height:1.3}
 .theme.add{border:1.5px dashed var(--line);background:transparent;box-shadow:none;color:var(--sub)}
 .theme .del{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;border:0;
@@ -82,7 +103,8 @@ header h1{font-size:19px;margin:0;font-weight:800;letter-spacing:-.3px;flex:1}
 .place h3{margin:0 0 2px;font-size:16px;letter-spacing:-.2px}
 .meta{font-size:12.5px;color:var(--sub)}
 .memo{font-size:13.5px;margin-top:6px;background:var(--bg);border-radius:10px;padding:7px 10px;white-space:pre-wrap}
-.badge{display:inline-block;font-size:11.5px;font-weight:700;background:var(--soft);color:var(--accent);border-radius:999px;padding:2px 8px;margin-right:4px}
+.badge{--c:var(--accent);display:inline-block;font-size:11.5px;font-weight:700;background:color-mix(in srgb, var(--c) 18%, transparent);color:var(--c);border-radius:999px;padding:2px 8px;margin-right:4px}
+.card.place{border-left:3px solid var(--c,transparent)}
 .actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .lnk{display:inline-flex;align-items:center;gap:4px;text-decoration:none;border-radius:10px;padding:7px 10px;font-size:13px;font-weight:700;border:0}
 .lnk.naver{background:var(--naver);color:#fff}
@@ -90,6 +112,35 @@ header h1{font-size:19px;margin:0;font-weight:800;letter-spacing:-.3px;flex:1}
 .lnk.plain{background:var(--bg);color:var(--ink)}
 .empty{text-align:center;color:var(--sub);padding:36px 12px;font-size:14px}
 .empty .big{font-size:40px}
+
+/* dashboard */
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kpi{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:13px 14px;min-width:0}
+.kpi .k{font-size:12.5px;color:var(--sub);font-weight:700}
+.kpi .v{font-size:26px;font-weight:800;letter-spacing:-.5px;line-height:1.25;margin-top:2px}
+.kpi .v small{font-size:13px;font-weight:700;color:var(--sub);margin-left:2px}
+.kpi .s{font-size:12px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi.hero{grid-column:1 / -1;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 8px 22px rgba(255,122,89,.28)}
+.kpi.hero .k,.kpi.hero .s{color:rgba(255,255,255,.88)}
+.prog{height:8px;border-radius:8px;background:rgba(255,255,255,.3);overflow:hidden;margin-top:8px}
+.prog i{display:block;height:100%;background:#fff;border-radius:8px}
+.bars .bar{display:grid;grid-template-columns:96px 1fr 30px;gap:8px;align-items:center;font-size:13px;margin:7px 0}
+.bars .bar .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700}
+.bars .track{height:10px;background:var(--card2);border-radius:10px;overflow:hidden}
+.bars .track i{display:block;height:100%;border-radius:10px;background:var(--c)}
+.bars .bar .cnt{text-align:right;color:var(--sub);font-variant-numeric:tabular-nums}
+.mini{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);text-decoration:none}
+.mini:first-child{border-top:0}
+.mini .dot{flex:0 0 34px;height:34px;border-radius:11px;display:grid;place-items:center;font-size:17px;background:color-mix(in srgb,var(--c) 18%,transparent)}
+.mini .tx{flex:1;min-width:0}
+.mini .tx b{display:block;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini .tx span{font-size:12px;color:var(--sub)}
+.mini .d{font-size:13px;font-weight:800;color:var(--accent);white-space:nowrap}
+.hscroll{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.hscroll::-webkit-scrollbar{display:none}
+.qchip{--c:var(--accent);flex:0 0 auto;border:0;background:var(--card);box-shadow:var(--shadow);border-radius:14px;padding:9px 12px;
+  font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:6px;border-bottom:3px solid var(--c)}
+.lnk.done{background:color-mix(in srgb,#34d399 20%,transparent);color:#0f9f6e}
 
 /* bottom tabs */
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--card);border-top:1px solid var(--line);
@@ -102,10 +153,10 @@ nav.tabs button.on{color:var(--accent);font-weight:800}
 
 /* map */
 #map{width:100%;height:46vh;min-height:280px;border-radius:var(--radius);overflow:hidden;background:var(--line)}
-.mk{background:var(--accent);color:#fff;font-weight:800;font-size:12px;border-radius:999px;min-width:24px;height:24px;
-  padding:0 6px;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)}
-.mk.saved{background:#2f6fed}
-.mk.me{background:#111;min-width:16px;height:16px;padding:0}
+.mk{background:var(--c,var(--accent));color:#10161d;font-weight:800;font-size:12px;border-radius:999px;min-width:26px;height:26px;
+  padding:0 7px;display:grid;place-items:center;border:2px solid #10161d;box-shadow:0 2px 8px rgba(0,0,0,.45)}
+.mk.saved{border-color:#fff}
+.mk.me{background:#4da3ff;min-width:16px;height:16px;padding:0;border:3px solid #fff;box-shadow:0 0 0 6px rgba(77,163,255,.25)}
 
 /* sheet */
 .dim{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:50;display:none}
@@ -138,12 +189,17 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
 <div class="app">
   <header>
     <img src="icon-192.png" alt="">
-    <h1 id="title">명소찾기</h1>
+    <div class="ttl"><h1 id="title">내 주변 명소</h1><div class="where" id="where">위치 확인 중…</div></div>
     <button class="icon-btn" id="btnSettings" aria-label="설정">⚙️</button>
   </header>
 
+  <!-- ⓪ 대시보드 -->
+  <main class="view on" id="v-dash">
+    <div class="section" id="dash"></div>
+  </main>
+
   <!-- ① 찾기 -->
-  <main class="view on" id="v-find">
+  <main class="view" id="v-find">
     <div class="section">
       <div class="region">
         <div class="row">
@@ -151,6 +207,7 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
           <button class="btn" id="btnLoc">📍 내 위치</button>
         </div>
         <div class="chips" id="regionChips"></div>
+        <div class="radius" data-radius><span>반경</span></div>
         <div class="status" id="locStatus"></div>
       </div>
 
@@ -180,6 +237,7 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
           <input class="input" id="mapQ" placeholder="장소·키워드 검색 (예: 복권판매점)" autocomplete="off">
           <button class="btn primary" id="btnMapSearch">검색</button>
         </div>
+        <div class="radius" data-radius style="margin:0 0 10px"><span>반경</span></div>
         <div id="map"></div>
         <div class="row" style="margin:10px 0 4px;justify-content:space-between">
           <div class="meta" id="mapInfo">지도를 움직인 뒤 검색하면 그 주변에서 찾아요.</div>
@@ -211,7 +269,8 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
 </div>
 
 <nav class="tabs"><div class="in">
-  <button data-tab="find" class="on"><span class="ti">🔎</span>찾기</button>
+  <button data-tab="dash" class="on"><span class="ti">📊</span>한눈에</button>
+  <button data-tab="find"><span class="ti">🔎</span>찾기</button>
   <button data-tab="map"><span class="ti">🗺️</span>지도</button>
   <button data-tab="saved"><span class="ti">⭐</span><span>저장 <span id="savedCount"></span></span></button>
 </div></nav>
@@ -231,22 +290,22 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
 // mapKw: 이 앱의 카카오 지도 검색에 쓸 키워드 (없으면 kw 사용)
 // extra: 추가로 보여줄 참고 링크
 const DEFAULT_THEMES = [
-  {id:'jhm',   em:'🍜', name:'전현무계획',   kw:'전현무계획 맛집'},
-  {id:'lyj',   em:'🍱', name:'이영자 맛집',  kw:'이영자 맛집'},
-  {id:'smsh',  em:'🍽️', name:'수요미식회',   kw:'수요미식회 맛집'},
-  {id:'3dc',   em:'🔥', name:'3대천왕',      kw:'백종원 3대천왕 맛집'},
-  {id:'dal',   em:'🥇', name:'생활의 달인',  kw:'생활의달인 맛집'},
-  {id:'jsd',   em:'⏳', name:'줄서는식당',   kw:'줄서는식당'},
-  {id:'ttg',   em:'🎬', name:'또간집',       kw:'또간집'},
-  {id:'blue',  em:'🎗️', name:'블루리본',     kw:'블루리본 맛집'},
-  {id:'nopo',  em:'🏮', name:'노포 맛집',    kw:'노포 맛집'},
-  {id:'lotto', em:'🍀', name:'로또 명당',    kw:'로또 명당', mapKw:'복권판매점',
+  {id:'jhm', c:'#ff7a59',   em:'🍜', name:'전현무계획',   kw:'전현무계획 맛집'},
+  {id:'lyj', c:'#ffb547',   em:'🍱', name:'이영자 맛집',  kw:'이영자 맛집'},
+  {id:'smsh', c:'#f2668b',  em:'🍽️', name:'수요미식회',   kw:'수요미식회 맛집'},
+  {id:'3dc', c:'#ff5e3a',   em:'🔥', name:'3대천왕',      kw:'백종원 3대천왕 맛집'},
+  {id:'dal', c:'#ffd84d',   em:'🥇', name:'생활의 달인',  kw:'생활의달인 맛집'},
+  {id:'jsd', c:'#8c9bff',   em:'⏳', name:'줄서는식당',   kw:'줄서는식당'},
+  {id:'ttg', c:'#b98cff',   em:'🎬', name:'또간집',       kw:'또간집'},
+  {id:'blue', c:'#4fa8ff',  em:'🎗️', name:'블루리본',     kw:'블루리본 맛집'},
+  {id:'nopo', c:'#d9a26a',  em:'🏮', name:'노포 맛집',    kw:'노포 맛집'},
+  {id:'lotto', c:'#34d399', em:'🍀', name:'로또 명당',    kw:'로또 명당', mapKw:'복권판매점',
     extra:[
       {label:'동행복권 (공식) 홈페이지', url:'https://dhlottery.co.kr'},
       {label:'로또 1등 당첨 판매점 모음 (민간)', url:'https://pyony.com/lotto/win-stores/'}
     ]},
-  {id:'bakery',em:'🥐', name:'빵지순례',     kw:'빵집 빵지순례'},
-  {id:'view',  em:'🌅', name:'뷰 맛집·카페', kw:'뷰 카페'}
+  {id:'bakery', c:'#f6a96b',em:'🥐', name:'빵지순례',     kw:'빵집 빵지순례'},
+  {id:'view', c:'#3cc8dc',  em:'🌅', name:'뷰 맛집·카페', kw:'뷰 카페'}
 ];
 
 // ---------- 저장소 ----------
@@ -257,7 +316,18 @@ const LS = {
 let themes   = LS.get('themes', null) || DEFAULT_THEMES.slice();
 let places   = LS.get('places', []);          // 저장한 장소
 let recents  = LS.get('recents', []);         // 최근 지역
-let settings = Object.assign({kakaoKey:'', openMode:'web'}, LS.get('settings', {}));
+let settings = Object.assign({kakaoKey:'', openMode:'web', radius:3000, mode:'light'}, LS.get('settings', {}));
+const RADII = [[500,'500m'],[1000,'1km'],[3000,'3km'],[5000,'5km'],[10000,'10km'],[20000,'20km']];
+function applyMode(){
+  const dark = settings.mode === 'dark' || (settings.mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : '';
+  document.querySelector('meta[name=theme-color]').setAttribute('content', dark ? '#10161d' : '#f3f5f8');
+}
+applyMode();
+function themeColor(t){
+  if (!t) return '#8a99a8';
+  return t.c || (DEFAULT_THEMES.find(d => d.id === t.id) || {}).c || '#ff7a59';
+}
 let myPos    = null;   // {lat,lng}
 let myArea   = '';     // 내 위치를 동 이름으로 바꾼 값 (카카오 키 있을 때)
 let useMyLoc = false;  // 지역 대신 내 위치 사용 중
@@ -311,7 +381,26 @@ function currentArea(){
   if (useMyLoc) return myArea || '';
   return $('#region').value.trim();
 }
+function renderRadius(){
+  document.querySelectorAll('[data-radius]').forEach(box => {
+    box.innerHTML = '<span>반경</span>' + RADII.map(([m,l]) =>
+      `<button class="rchip ${settings.radius===m?'on':''}" data-m="${m}">${l}</button>`).join('');
+  });
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('.rchip'); if (!b) return;
+  settings.radius = +b.dataset.m; LS.set('settings', settings); renderRadius(); updateWhere(); if ($('#v-dash').classList.contains('on')) renderDash();
+  if (MapView.map && $('#mapQ').value.trim()) MapView.search(MapView.themeId);
+});
+function updateWhere(){
+  const w = $('#where'); if (!w) return;
+  const r = (RADII.find(x => x[0] === settings.radius) || [0,''])[1];
+  if (useMyLoc) w.innerHTML = `📍 <b>${esc(myArea || '현재 위치')}</b> 기준 · 반경 ${r}`;
+  else if ($('#region').value.trim()) w.innerHTML = `🔎 <b>${esc($('#region').value.trim())}</b> 에서 찾는 중`;
+  else w.textContent = myPos ? '지역을 입력하거나 내 위치를 눌러 주세요' : '위치 확인 중…';
+}
 function renderRegionChips(){
+  renderRadius(); updateWhere();
   const box = $('#regionChips');
   const chips = [];
   if (myPos) chips.push(`<button class="chip ${useMyLoc?'on':''}" data-me="1">📍 ${esc(myArea || '내 주변')}</button>`);
@@ -342,17 +431,27 @@ function locate(){
     );
   });
 }
-$('#btnLoc').addEventListener('click', async () => {
-  const st = $('#locStatus'); st.textContent = '위치 확인 중…';
+// 내 위치 잡기 — 앱을 열 때 자동으로 한 번, 버튼으로 언제든 다시
+async function useCurrentLocation(auto){
+  const st = $('#locStatus');
+  st.textContent = auto ? '📍 내 위치를 찾는 중…' : '위치 확인 중…';
   try{
     await locate();
+    // 위치를 찾는 동안 사용자가 지역을 직접 입력했다면 그 지역을 우선
+    if (auto && $('#region').value.trim()){ st.textContent = ''; renderRegionChips(); return; }
     useMyLoc = true; $('#region').value = '';
     myArea = '';
     if (await Kakao.ready()) myArea = await Kakao.areaName(myPos);
-    st.textContent = myArea ? `현재 위치: ${myArea}` : '현재 위치를 가져왔어요. 지도 앱이 내 주변으로 검색해요.';
+    st.textContent = '';   // 위치 표시는 상단 제목 아래에서 보여줌
     renderRegionChips();
-  }catch(e){ st.textContent = e.message; }
-});
+    if (MapView.map){ MapView.map.setCenter(new kakao.maps.LatLng(myPos.lat, myPos.lng)); MapView.drawMe(); }
+    if ($('#savedSort').value === 'dist') renderSaved();
+    if ($('#v-dash').classList.contains('on')) renderDash();
+  }catch(e){
+    st.textContent = auto ? `${e.message} — 지역을 직접 입력해도 돼요` : e.message;
+  }
+}
+$('#btnLoc').addEventListener('click', () => useCurrentLocation(false));
 
 // ---------- 테마 ----------
 let editing = false;
@@ -360,7 +459,7 @@ function renderThemes(){
   const g = $('#themeGrid');
   g.classList.toggle('editing', editing);
   g.innerHTML = themes.map((t,i) => `
-    <button class="theme" data-i="${i}">
+    <button class="theme" data-i="${i}" style="--c:${esc(themeColor(t))}">
       <span class="del" data-del="${i}">✕</span>
       <span class="em">${esc(t.em)}</span><span class="nm">${esc(t.name)}</span>
     </button>`).join('') +
@@ -391,6 +490,7 @@ function openThemeForm(i){
     <div class="row field">
       <div style="flex:0 0 72px"><label>아이콘</label><input class="input" id="tEm" value="${esc(t.em)}" maxlength="4" style="text-align:center;font-size:22px"></div>
       <div style="flex:1"><label>이름</label><input class="input" id="tName" value="${esc(t.name)}" placeholder="백반기행"></div>
+      <div style="flex:0 0 56px"><label>색</label><input type="color" id="tC" value="${esc(themeColor(t.id ? t : null) === '#8a99a8' ? '#ff7a59' : themeColor(t))}" style="width:56px;height:46px;border:0;background:none;padding:0"></div>
     </div>
     <div class="field"><label>검색 키워드 (지역 뒤에 붙어요)</label>
       <input class="input" id="tKw" value="${esc(t.kw)}" placeholder="허영만 백반기행 맛집"></div>
@@ -401,7 +501,7 @@ function openThemeForm(i){
   `);
   $('#tSave').onclick = () => {
     const nt = {
-      id: t.id || uid(), em: $('#tEm').value.trim() || '📍',
+      id: t.id || uid(), em: $('#tEm').value.trim() || '📍', c: $('#tC').value,
       name: $('#tName').value.trim(), kw: $('#tKw').value.trim(),
       mapKw: $('#tMapKw').value.trim() || undefined, extra: t.extra
     };
@@ -476,8 +576,9 @@ function fmtDist(km){ return km < 1 ? Math.round(km*1000)+'m' : km.toFixed(1)+'k
 function placeCard(p, opts = {}){
   const t = themeOf(p.theme);
   const d = (myPos && p.lat) ? ` · ${fmtDist(distKm(myPos, p))}` : '';
-  return `<div class="card place" data-id="${esc(p.id)}">
-    <div>${t ? `<span class="badge">${esc(t.em)} ${esc(t.name)}</span>` : ''}${p.category ? `<span class="meta">${esc(p.category)}</span>` : ''}</div>
+  const pc = t ? themeColor(t) : '';
+  return `<div class="card place" data-id="${esc(p.id)}" style="${t ? '--c:'+esc(pc) : ''}">
+    <div>${t ? `<span class="badge" style="--c:${esc(pc)}">${esc(t.em)} ${esc(t.name)}</span>` : ''}${p.category ? `<span class="meta">${esc(p.category)}</span>` : ''}</div>
     <h3>${esc(p.name)}</h3>
     <div class="meta">${esc(p.address || p.region || '주소 미입력')}${d}${p.phone ? ' · '+esc(p.phone) : ''}</div>
     ${p.memo ? `<div class="memo">${esc(p.memo)}</div>` : ''}
@@ -485,6 +586,7 @@ function placeCard(p, opts = {}){
       <a class="lnk naver" href="${esc(Links.naverSearch(placeQuery(p)))}" target="_blank" rel="noopener">네이버</a>
       <a class="lnk kakao" href="${esc(Links.kakaoPlace(p))}" target="_blank" rel="noopener">카카오</a>
       ${p.lat ? `<a class="lnk plain" href="${esc(Links.kakaoRoute(p))}" target="_blank" rel="noopener">🚗 길찾기</a>` : ''}
+      <button class="lnk ${p.visited ? 'done' : 'plain'}" data-visit="${esc(p.id)}">${p.visited ? '✅ 가봤어요' : '☐ 가봤어요'}</button>
       ${opts.noEdit ? '' : `<button class="lnk plain" data-edit="${esc(p.id)}">수정</button><button class="lnk plain" data-rm="${esc(p.id)}">삭제</button>`}
     </div></div>`;
 }
@@ -508,6 +610,15 @@ $('#savedSort').addEventListener('change', async () => {
   renderSaved();
 });
 document.addEventListener('click', e => {
+  const vb = e.target.closest('[data-visit]');
+  if (vb){
+    const p = places.find(x => x.id === vb.dataset.visit); if (!p) return;
+    p.visited = !p.visited; p.visitedAt = p.visited ? Date.now() : null; LS.set('places', places);
+    vb.className = 'lnk ' + (p.visited ? 'done' : 'plain'); vb.textContent = p.visited ? '✅ 가봤어요' : '☐ 가봤어요';
+    if (p.visited) toast('🎉 방문 완료로 표시했어요');
+    if ($('#v-dash').classList.contains('on')) renderDash();
+    return;
+  }
   const ed = e.target.closest('[data-edit]'); if (ed) return openPlaceForm(places.find(p => p.id === ed.dataset.edit));
   const rm = e.target.closest('[data-rm]');
   if (rm){
@@ -642,7 +753,7 @@ const MapView = {
     this.savedOverlays.forEach(o => o.setMap(null)); this.savedOverlays = [];
     if (!this.showSaved) return;
     places.filter(p => p.lat).forEach(p => {
-      this.savedOverlays.push(this.overlay(p.lat, p.lng, `<div class="mk saved">★</div>`, () => {
+      this.savedOverlays.push(this.overlay(p.lat, p.lng, `<div class="mk saved" style="--c:${esc(themeColor(themeOf(p.theme)))}">★</div>`, () => {
         openSheet(placeCard(p, {noEdit:true}));
       }, 3));
     });
@@ -654,7 +765,7 @@ const MapView = {
     const c = this.map.getCenter();
     // 검색어에 지역명이 없으면 지금 보고 있는 지도 주변에서 거리순 검색
     const hasRegion = !useMyLoc && currentArea() && q.startsWith(currentArea());
-    const opt = hasRegion ? {} : {location:c, radius:20000, sort:kakao.maps.services.SortBy.DISTANCE};
+    const opt = hasRegion ? {} : {location:c, radius:settings.radius, sort:kakao.maps.services.SortBy.DISTANCE};
     $('#mapInfo').textContent = '검색 중…';
     this.results = []; this.overlays.forEach(o => o.setMap(null)); this.overlays = [];
     const data = await Kakao.keyword(q, opt);
@@ -668,7 +779,7 @@ const MapView = {
     const bounds = new kakao.maps.LatLngBounds();
     data.forEach((r,i) => {
       const n = start + i + 1;
-      this.overlays.push(this.overlay(+r.y, +r.x, `<div class="mk">${n}</div>`, () => {
+      this.overlays.push(this.overlay(+r.y, +r.x, `<div class="mk" style="--c:${esc(themeColor(themeOf(this.themeId)) === '#8a99a8' ? '#ff7a59' : themeColor(themeOf(this.themeId)))}">${n}</div>`, () => {
         const el = document.querySelector(`[data-res="${start+i}"]`); if (el) el.scrollIntoView({behavior:'smooth', block:'center'});
       }));
       bounds.extend(new kakao.maps.LatLng(+r.y, +r.x));
@@ -698,7 +809,7 @@ const MapView = {
     ps.keywordSearch($('#mapQ').value.trim(), (data, status, npg) => {
       this.pg = npg; if (status === kakao.maps.services.Status.OK) this.add(data, false);
     }, Object.assign({page: pg.current + 1}, (!useMyLoc && currentArea() && $('#mapQ').value.trim().startsWith(currentArea())) ? {} :
-      {location:this.map.getCenter(), radius:20000, sort:kakao.maps.services.SortBy.DISTANCE}));
+      {location:this.map.getCenter(), radius:settings.radius, sort:kakao.maps.services.SortBy.DISTANCE}));
   }
 };
 $('#btnMapSearch').addEventListener('click', () => MapView.search(MapView.themeId));
@@ -719,12 +830,76 @@ $('#mapResults').addEventListener('click', e => {
 });
 $('#btnGoSettings').addEventListener('click', () => openSettings());
 
+// ---------- 대시보드 ----------
+function renderDash(){
+  const total = places.length, visited = places.filter(p => p.visited).length, todo = total - visited;
+  const withPos = places.filter(p => p.lat);
+  const inR = myPos ? withPos.filter(p => distKm(myPos, p) * 1000 <= settings.radius) : [];
+  const near = myPos ? withPos.slice().sort((a,b) => distKm(myPos,a) - distKm(myPos,b)) : [];
+  const rLabel = (RADII.find(x => x[0] === settings.radius) || [0,''])[1];
+  const pct = total ? Math.round(visited / total * 100) : 0;
+
+  // 테마별 집계 (저장이 있는 테마만, 많은 순)
+  const byTheme = {};
+  places.forEach(p => { byTheme[p.theme || ''] = (byTheme[p.theme || ''] || 0) + 1; });
+  const rows = Object.entries(byTheme).sort((a,b) => b[1] - a[1]);
+  const max = rows.length ? rows[0][1] : 1;
+
+  const mini = (p, right) => { const t = themeOf(p.theme);
+    return `<a class="mini" href="${esc(Links.kakaoPlace(p))}" target="_blank" rel="noopener" style="--c:${esc(themeColor(t))}">
+      <span class="dot">${t ? esc(t.em) : '📍'}</span>
+      <span class="tx"><b>${esc(p.name)}${p.visited ? ' ✅' : ''}</b><span>${esc(t ? t.name : '기타')} · ${esc((p.address || p.region || '').split(' ').slice(0,3).join(' ') || '주소 없음')}</span></span>
+      <span class="d">${right}</span></a>`; };
+
+  const listTitle = near.length ? '가까운 저장 명소' : '최근 저장한 명소';
+  const listItems = near.length
+    ? near.slice(0,5).map(p => mini(p, fmtDist(distKm(myPos,p))))
+    : places.slice().sort((a,b) => (b.savedAt||0) - (a.savedAt||0)).slice(0,5)
+        .map(p => mini(p, new Date(p.savedAt||Date.now()).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})));
+
+  $('#dash').innerHTML = `
+    <div class="kpis">
+      <div class="kpi hero">
+        <div class="k">나의 명소 지도</div>
+        <div class="v">${total}<small style="color:rgba(255,255,255,.85)">곳 저장</small></div>
+        <div class="s">가본 곳 ${visited} · 가볼 곳 ${todo} · 방문율 ${pct}%</div>
+        <div class="prog"><i style="width:${pct}%"></i></div>
+      </div>
+      <div class="kpi"><div class="k">📍 반경 ${rLabel} 안</div>
+        <div class="v">${myPos ? inR.length : '–'}<small>곳</small></div>
+        <div class="s">${myPos ? esc(myArea || '현재 위치') + ' 기준' : '위치를 켜면 보여요'}</div></div>
+      <div class="kpi"><div class="k">🏁 가장 가까운 곳</div>
+        <div class="v" style="font-size:20px;padding:4px 0 3px">${near.length ? fmtDist(distKm(myPos, near[0])) : '–'}</div>
+        <div class="s">${near.length ? esc(near[0].name) : (withPos.length ? '위치를 켜면 보여요' : '위치 저장된 곳 없음')}</div></div>
+    </div>
+
+    <div class="label">테마로 바로 찾기 <button data-goto="find">전체 보기</button></div>
+    <div class="hscroll">${themes.map((t,i) =>
+      `<button class="qchip" data-q="${i}" style="--c:${esc(themeColor(t))}">${esc(t.em)} ${esc(t.name)}</button>`).join('')}</div>
+
+    <div class="label">테마별 저장 현황</div>
+    <div class="card bars">${rows.length ? rows.map(([id,n]) => { const t = themeOf(id);
+      return `<div class="bar" style="--c:${esc(themeColor(t))}"><span class="n">${t ? esc(t.em+' '+t.name) : '📍 기타'}</span>
+        <span class="track"><i style="width:${Math.max(6, n/max*100)}%"></i></span><span class="cnt">${n}</span></div>`; }).join('')
+      : `<div class="empty" style="padding:18px 8px">아직 저장한 명소가 없어요.<br>테마를 눌러 찾아보고 저장해 보세요.</div>`}</div>
+
+    <div class="label">${listTitle} <button data-goto="saved">전체 보기</button></div>
+    <div class="card" style="padding:4px 14px">${listItems.length ? listItems.join('')
+      : `<div class="empty" style="padding:18px 8px">저장한 명소가 여기에 보여요.</div>`}</div>
+  `;
+}
+$('#dash').addEventListener('click', e => {
+  const q = e.target.closest('[data-q]'); if (q) return openSearchSheet(themes[+q.dataset.q]);
+  const g = e.target.closest('[data-goto]'); if (g) return showTab(g.dataset.goto);
+});
+
 // ---------- 탭 ----------
 function showTab(name){
   document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === 'v-'+name));
   if (name === 'map') MapView.init();
   if (name === 'saved') renderSaved();
+  if (name === 'dash') renderDash();
   window.scrollTo(0,0);
 }
 document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
@@ -733,7 +908,13 @@ document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('cl
 function openSettings(){
   openSheet(`
     <h2>⚙️ 설정</h2>
-    <div class="field" style="margin-top:12px"><label>링크 열기 방식</label>
+    <div class="field" style="margin-top:12px"><label>화면 모드</label>
+      <div class="seg" id="sTheme">
+        <button data-t="light" class="${settings.mode==='light'?'on':''}">☀️ 라이트</button>
+        <button data-t="dark" class="${settings.mode==='dark'?'on':''}">🌙 다크</button>
+        <button data-t="auto" class="${settings.mode==='auto'?'on':''}">자동</button>
+      </div></div>
+    <div class="field"><label>링크 열기 방식</label>
       <div class="seg" id="sMode">
         <button data-m="web" class="${settings.openMode==='web'?'on':''}">웹으로 열기</button>
         <button data-m="app" class="${settings.openMode==='app'?'on':''}">지도 앱으로 열기</button>
@@ -754,6 +935,9 @@ function openSettings(){
     <button class="btn ghost" id="sResetThemes" style="width:100%;margin-top:8px">테마를 기본값으로 되돌리기</button>
   `);
   let mode = settings.openMode;
+  $('#sTheme').onclick = e => { const b = e.target.closest('[data-t]'); if (!b) return;
+    settings.mode = b.dataset.t; LS.set('settings', settings); applyMode();
+    $('#sTheme').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
   $('#sMode').onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; mode = b.dataset.m;
     $('#sMode').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); };
   $('#sSave').onclick = () => {
@@ -792,7 +976,8 @@ function openSettings(){
 $('#btnSettings').addEventListener('click', openSettings);
 
 // ---------- 시작 ----------
-renderThemes(); renderRegionChips(); renderSaved();
+renderThemes(); renderRegionChips(); renderSaved(); renderDash();
+useCurrentLocation(true);   // 앱을 열면 바로 내 위치 기준으로 시작
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }

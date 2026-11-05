@@ -176,6 +176,30 @@ nav.tabs button.on{color:var(--accent);font-weight:800}
 textarea.input{min-height:70px;resize:vertical}
 select.input{appearance:none}
 .hint{font-size:12.5px;color:var(--sub);line-height:1.55}
+/* 별점·후기·사진 */
+.stars{display:inline-flex;gap:1px;line-height:1;vertical-align:-1px;font-size:15px}
+.st{position:relative;display:inline-block;color:var(--line)}
+.st i{position:absolute;left:0;top:0;bottom:0;overflow:hidden;color:#ffb400;font-style:normal;white-space:nowrap}
+.rate{display:flex;align-items:center;gap:10px}
+.rate .stars{font-size:40px;gap:4px;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none}
+.rate .num{font-size:22px;font-weight:800;min-width:46px;font-variant-numeric:tabular-nums}
+.review{margin-top:8px;padding:10px 12px;border-radius:12px;background:var(--card2)}
+.review .top{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--sub)}
+.review .top b{color:var(--ink);font-size:14px}
+.review p{margin:5px 0 0;font-size:14px;white-space:pre-wrap;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+.thumbs .ph{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--line);border:0;padding:0;max-width:100%}
+.thumbs .ph img{width:100%;height:100%;object-fit:cover;display:block}
+.thumbs .ph .more{position:absolute;inset:0;background:rgba(0,0,0,.5);color:#fff;font-weight:800;display:grid;place-items:center;font-size:16px}
+.thumbs .ph .x{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:12px;display:grid;place-items:center}
+.thumbs .addph{aspect-ratio:1;border-radius:10px;border:1.5px dashed var(--line);background:transparent;color:var(--sub);font-size:12.5px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.thumbs .addph span{font-size:22px}
+.viewer{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;flex-direction:column}
+.viewer.on{display:flex}
+.viewer img{max-width:100%;max-height:82vh;object-fit:contain}
+.viewer .bar{position:absolute;top:calc(10px + env(safe-area-inset-top));left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:0 14px;color:#fff;font-weight:700}
+.viewer button{border:0;background:rgba(255,255,255,.15);color:#fff;border-radius:12px;width:42px;height:42px;font-size:18px}
+.viewer .nav{position:absolute;bottom:calc(24px + env(safe-area-inset-bottom));display:flex;gap:16px}
 .toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);
   background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13.5px;opacity:0;transition:.2s;z-index:80;pointer-events:none;white-space:nowrap}
 .toast.on{opacity:1;transform:translateX(-50%)}
@@ -261,6 +285,7 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
           <option value="new">최근 저장순</option>
           <option value="name">이름순</option>
           <option value="dist">가까운순</option>
+          <option value="rate">별점 높은순</option>
         </select>
       </div>
       <div id="savedList"></div>
@@ -278,6 +303,11 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
 <div class="dim" id="dim"></div>
 <div class="sheet" id="sheet"><div class="grab"></div><div id="sheetBody"></div></div>
 <div class="toast" id="toast"></div>
+<div class="viewer" id="viewer">
+  <div class="bar"><span id="vCount"></span><button id="vClose" aria-label="닫기">✕</button></div>
+  <img id="vImg" alt="">
+  <div class="nav"><button id="vPrev" aria-label="이전">‹</button><button id="vNext" aria-label="다음">›</button></div>
+</div>
 
 <script>
 'use strict';
@@ -562,6 +592,74 @@ function openSheet(html){ $('#sheetBody').innerHTML = html; $('#dim').classList.
 function closeSheet(){ $('#dim').classList.remove('on'); $('#sheet').classList.remove('on'); }
 $('#dim').addEventListener('click', closeSheet);
 
+// ---------- 사진 저장소 (IndexedDB: 사진은 용량이 커서 따로 보관) ----------
+const PhotoDB = {
+  _db: null, cache: {},
+  open(){
+    if (this._db) return Promise.resolve(this._db);
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('myeongso', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('photos');
+      r.onsuccess = () => { this._db = r.result; res(this._db); };
+      r.onerror = () => rej(r.error);
+    });
+  },
+  async tx(mode, fn){
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const t = db.transaction('photos', mode), st = t.objectStore('photos');
+      const out = fn(st);
+      t.oncomplete = () => res(out && out.result !== undefined ? out.result : undefined);
+      t.onerror = () => rej(t.error);
+    });
+  },
+  async get(id){ if (this.cache[id]) return this.cache[id];
+    const v = await this.tx('readonly', st => st.get(id)); if (v) this.cache[id] = v; return v; },
+  put(id, data){ this.cache[id] = data; return this.tx('readwrite', st => st.put(data, id)); },
+  del(id){ delete this.cache[id]; return this.tx('readwrite', st => st.delete(id)); }
+};
+// 사진을 긴 변 1280px JPEG로 줄여서 저장 (폰 사진 5MB → 약 200KB)
+async function shrinkImage(file, max = 1280, q = 0.8){
+  const url = URL.createObjectURL(file);
+  try{
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', q);
+  } finally { URL.revokeObjectURL(url); }
+}
+// 화면에 있는 <img data-ph="id">에 사진 채우기
+function fillPhotos(root = document){
+  root.querySelectorAll('img[data-ph]:not([src])').forEach(async im => {
+    try{ const d = await PhotoDB.get(im.dataset.ph); if (d) im.src = d; }catch(e){}
+  });
+}
+// 사진 크게 보기
+const Viewer = {
+  ids: [], i: 0,
+  async show(ids, i){ this.ids = ids; this.i = i; $('#viewer').classList.add('on'); this.draw(); },
+  async draw(){ $('#vCount').textContent = `${this.i + 1} / ${this.ids.length}`;
+    $('#vImg').src = (await PhotoDB.get(this.ids[this.i])) || ''; },
+  move(d){ this.i = (this.i + d + this.ids.length) % this.ids.length; this.draw(); },
+  close(){ $('#viewer').classList.remove('on'); $('#vImg').removeAttribute('src'); }
+};
+$('#vClose').onclick = () => Viewer.close();
+$('#vPrev').onclick = () => Viewer.move(-1);
+$('#vNext').onclick = () => Viewer.move(1);
+$('#viewer').addEventListener('click', e => { if (e.target.id === 'viewer') Viewer.close(); });
+
+// 별 그리기 (0.5 단위)
+function starsHTML(r){
+  let h = '';
+  for (let i = 0; i < 5; i++){ const f = Math.max(0, Math.min(1, (r || 0) - i)) * 100;
+    h += `<span class="st" data-i="${i}">★<i style="width:${f}%">★</i></span>`; }
+  return `<span class="stars">${h}</span>`;
+}
+const fmtRate = r => (r || 0).toFixed(1);
+const fmtDay = t => t ? new Date(t).toLocaleDateString('ko-KR', {year:'2-digit', month:'numeric', day:'numeric'}) : '';
+
 // ---------- 저장한 장소 ----------
 let savedFilter = 'all';
 function themeOf(id){ return themes.find(t => t.id === id); }
@@ -582,11 +680,18 @@ function placeCard(p, opts = {}){
     <h3>${esc(p.name)}</h3>
     <div class="meta">${esc(p.address || p.region || '주소 미입력')}${d}${p.phone ? ' · '+esc(p.phone) : ''}</div>
     ${p.memo ? `<div class="memo">${esc(p.memo)}</div>` : ''}
+    ${p.visited && (p.rating || p.review || (p.photos||[]).length) ? `<div class="review">
+      <div class="top">${p.rating ? `${starsHTML(p.rating)} <b>${fmtRate(p.rating)}</b>` : ''}${p.visitDate ? ` · ${esc(p.visitDate)} 방문` : ''}</div>
+      ${p.review ? `<p>${esc(p.review)}</p>` : ''}
+      ${(p.photos||[]).length ? `<div class="thumbs">${p.photos.slice(0,4).map((id,i) =>
+        `<button class="ph" data-view="${esc(p.id)}" data-vi="${i}"><img data-ph="${esc(id)}" alt="">${i===3 && p.photos.length>4 ? `<span class="more">+${p.photos.length-4}</span>` : ''}</button>`).join('')}</div>` : ''}
+    </div>` : ''}
     <div class="actions">
       <a class="lnk naver" href="${esc(Links.naverSearch(placeQuery(p)))}" target="_blank" rel="noopener">네이버</a>
       <a class="lnk kakao" href="${esc(Links.kakaoPlace(p))}" target="_blank" rel="noopener">카카오</a>
       ${p.lat ? `<a class="lnk plain" href="${esc(Links.kakaoRoute(p))}" target="_blank" rel="noopener">🚗 길찾기</a>` : ''}
       <button class="lnk ${p.visited ? 'done' : 'plain'}" data-visit="${esc(p.id)}">${p.visited ? '✅ 가봤어요' : '☐ 가봤어요'}</button>
+      ${p.visited && !opts.noEdit ? `<button class="lnk plain" data-review="${esc(p.id)}">${p.rating || p.review || (p.photos||[]).length ? '✍️ 후기 수정' : '✍️ 후기 쓰기'}</button>` : ''}
       ${opts.noEdit ? '' : `<button class="lnk plain" data-edit="${esc(p.id)}">수정</button><button class="lnk plain" data-rm="${esc(p.id)}">삭제</button>`}
     </div></div>`;
 }
@@ -599,10 +704,12 @@ function renderSaved(){
   let list = places.filter(p => savedFilter === 'all' || p.theme === savedFilter);
   const sort = $('#savedSort').value;
   if (sort === 'name') list.sort((a,b) => a.name.localeCompare(b.name, 'ko'));
+  else if (sort === 'rate') list.sort((a,b) => (b.rating||0) - (a.rating||0) || (b.visitedAt||0) - (a.visitedAt||0));
   else if (sort === 'dist' && myPos) list.sort((a,b) => (a.lat ? distKm(myPos,a) : 9e9) - (b.lat ? distKm(myPos,b) : 9e9));
   else list.sort((a,b) => (b.savedAt||0) - (a.savedAt||0));
   $('#savedList').innerHTML = list.length ? list.map(p => placeCard(p)).join('')
     : `<div class="empty"><div class="big">⭐</div>아직 저장한 장소가 없어요.<br>찾기 탭에서 맛집을 찾은 뒤 저장해 보세요.</div>`;
+  fillPhotos($('#savedList'));
 }
 $('#savedFilter').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if (!b) return; savedFilter = b.dataset.f; renderSaved(); });
 $('#savedSort').addEventListener('change', async () => {
@@ -613,21 +720,109 @@ document.addEventListener('click', e => {
   const vb = e.target.closest('[data-visit]');
   if (vb){
     const p = places.find(x => x.id === vb.dataset.visit); if (!p) return;
+    if (p.visited && (p.rating || p.review || (p.photos||[]).length)){
+      if (!confirm('방문 표시를 지울까요? (써 둔 별점·후기·사진은 남아 있어요)')) return;
+    }
     p.visited = !p.visited; p.visitedAt = p.visited ? Date.now() : null; LS.set('places', places);
-    vb.className = 'lnk ' + (p.visited ? 'done' : 'plain'); vb.textContent = p.visited ? '✅ 가봤어요' : '☐ 가봤어요';
-    if (p.visited) toast('🎉 방문 완료로 표시했어요');
-    if ($('#v-dash').classList.contains('on')) renderDash();
+    renderSaved(); if ($('#v-dash').classList.contains('on')) renderDash();
+    if (p.visited) openReviewForm(p);   // 가봤으면 바로 별점·후기 쓰기
     return;
   }
+  const rv = e.target.closest('[data-review]'); if (rv) return openReviewForm(places.find(p => p.id === rv.dataset.review));
+  const vw = e.target.closest('[data-view]');
+  if (vw){ const p = places.find(x => x.id === vw.dataset.view); if (p) Viewer.show(p.photos, +vw.dataset.vi); return; }
   const ed = e.target.closest('[data-edit]'); if (ed) return openPlaceForm(places.find(p => p.id === ed.dataset.edit));
   const rm = e.target.closest('[data-rm]');
   if (rm){
     const p = places.find(x => x.id === rm.dataset.rm);
     if (p && confirm(`'${p.name}'을(를) 삭제할까요?`)){
+      (p.photos || []).forEach(id => PhotoDB.del(id).catch(()=>{}));
       places = places.filter(x => x.id !== p.id); LS.set('places', places); renderSaved(); MapView.refreshSaved(); toast('삭제했어요');
     }
   }
 });
+// ---------- 별점·후기·사진 쓰기 ----------
+function openReviewForm(p){
+  if (!p) return;
+  let rating = p.rating || 0;
+  let photos = (p.photos || []).slice();          // 저장된 사진 id
+  const added = [];                               // 이번에 새로 넣은 사진 id (취소 시 정리)
+  const removed = [];
+  const today = new Date(); const iso = d => new Date(d.getTime() - d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+  openSheet(`
+    <h2>✍️ ${esc(p.name)}</h2>
+    <div class="q">가 본 곳의 별점과 후기를 남겨요</div>
+    <div class="field"><label>별점 (0.5점 단위 · 별 왼쪽 절반을 누르면 반 개)</label>
+      <div class="rate"><span id="rStars"></span><span class="num" id="rNum"></span>
+        <button class="btn small ghost" id="rClear" style="margin-left:auto">지우기</button></div></div>
+    <div class="field"><label>방문한 날</label>
+      <input class="input" type="date" id="rDate" value="${esc(p.visitDate || iso(today))}" max="${iso(today)}"></div>
+    <div class="field"><label>후기</label>
+      <textarea class="input" id="rText" style="min-height:110px" placeholder="맛, 분위기, 추천 메뉴, 웨이팅, 주차 등">${esc(p.review || '')}</textarea></div>
+    <div class="field"><label>사진 <span id="rPhCount" style="font-weight:400"></span></label>
+      <div class="thumbs" id="rPhotos"></div>
+      <input type="file" id="rFile" accept="image/*" multiple hidden>
+      <div class="hint" style="margin-top:6px">사진은 자동으로 줄여서 이 휴대폰에 저장돼요 (최대 12장).</div></div>
+    <button class="btn primary" id="rSave" style="width:100%">후기 저장</button>
+  `);
+  const drawStars = () => {
+    $('#rStars').innerHTML = starsHTML(rating);
+    $('#rNum').textContent = rating ? fmtRate(rating) : '–';
+  };
+  const pick = ev => {
+    const st = ev.target.closest('.st'); if (!st) return;
+    const r = st.getBoundingClientRect();
+    const x = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
+    rating = +st.dataset.i + (x < r.width / 2 ? 0.5 : 1);
+    drawStars();
+  };
+  drawStars();
+  $('#rStars').addEventListener('click', pick);
+  // 손가락으로 쓸어서 고르기
+  $('#rStars').addEventListener('touchmove', ev => {
+    const t = ev.touches[0]; const el = document.elementFromPoint(t.clientX, t.clientY);
+    if (el && el.closest('#rStars')) pick({target: el, touches: ev.touches}); ev.preventDefault();
+  }, {passive:false});
+  $('#rClear').onclick = () => { rating = 0; drawStars(); };
+
+  const drawPhotos = () => {
+    $('#rPhCount').textContent = photos.length ? `(${photos.length}/12)` : '';
+    $('#rPhotos').innerHTML = photos.map((id,i) =>
+      `<div class="ph"><img data-ph="${esc(id)}" alt=""><button class="x" data-rmph="${i}" aria-label="사진 빼기">✕</button></div>`).join('') +
+      (photos.length < 12 ? `<button class="addph" id="rAdd"><span>📷</span>사진 추가</button>` : '');
+    fillPhotos($('#rPhotos'));
+  };
+  drawPhotos();
+  $('#rPhotos').onclick = ev => {
+    if (ev.target.closest('#rAdd')) return $('#rFile').click();
+    const x = ev.target.closest('[data-rmph]');
+    if (x){ removed.push(photos[+x.dataset.rmph]); photos.splice(+x.dataset.rmph, 1); drawPhotos(); }
+  };
+  $('#rFile').onchange = async ev => {
+    const files = [...ev.target.files].slice(0, 12 - photos.length); ev.target.value = '';
+    if (!files.length) return;
+    toast(`사진 ${files.length}장 넣는 중…`);
+    for (const f of files){
+      try{
+        const data = await shrinkImage(f); const id = 'ph_' + uid();
+        await PhotoDB.put(id, data); photos.push(id); added.push(id); drawPhotos();
+      }catch(err){ toast('읽을 수 없는 사진이 있어요'); }
+    }
+  };
+  $('#rSave').onclick = () => {
+    p.rating = rating || 0; p.visitDate = $('#rDate').value; p.review = $('#rText').value.trim();
+    p.photos = photos; p.visited = true; p.visitedAt = p.visitedAt || Date.now();
+    removed.forEach(id => PhotoDB.del(id).catch(()=>{}));
+    LS.set('places', places); saved = true; closeSheet(); renderSaved();
+    if ($('#v-dash').classList.contains('on')) renderDash();
+    toast('📝 후기를 저장했어요');
+  };
+  // 저장하지 않고 닫으면 새로 넣은 사진은 정리
+  let saved = false;
+  const cleanup = () => { if (!saved) added.forEach(id => PhotoDB.del(id).catch(()=>{})); $('#dim').removeEventListener('click', cleanup); };
+  $('#dim').addEventListener('click', cleanup);
+}
+
 $('#btnAddPlace').addEventListener('click', () => openPlaceForm(null, savedFilter !== 'all' ? savedFilter : ''));
 
 function themeOptions(sel){
@@ -838,6 +1033,11 @@ function renderDash(){
   const near = myPos ? withPos.slice().sort((a,b) => distKm(myPos,a) - distKm(myPos,b)) : [];
   const rLabel = (RADII.find(x => x[0] === settings.radius) || [0,''])[1];
   const pct = total ? Math.round(visited / total * 100) : 0;
+  const rated = places.filter(p => p.visited && p.rating);
+  const avg = rated.length ? rated.reduce((a,p) => a + p.rating, 0) / rated.length : 0;
+  const reviews = places.filter(p => p.visited && (p.review || p.rating)).length;
+  const photoN = places.reduce((a,p) => a + (p.photos||[]).length, 0);
+  const best = rated.slice().sort((a,b) => b.rating - a.rating || (b.visitedAt||0) - (a.visitedAt||0)).slice(0,3);
 
   // 테마별 집계 (저장이 있는 테마만, 많은 순)
   const byTheme = {};
@@ -871,7 +1071,20 @@ function renderDash(){
       <div class="kpi"><div class="k">🏁 가장 가까운 곳</div>
         <div class="v" style="font-size:20px;padding:4px 0 3px">${near.length ? fmtDist(distKm(myPos, near[0])) : '–'}</div>
         <div class="s">${near.length ? esc(near[0].name) : (withPos.length ? '위치를 켜면 보여요' : '위치 저장된 곳 없음')}</div></div>
+      <div class="kpi"><div class="k">⭐ 내 평균 별점</div>
+        <div class="v">${rated.length ? fmtRate(avg) : '–'}<small>/ 5</small></div>
+        <div class="s">${rated.length ? starsHTML(Math.round(avg*2)/2) : '가본 곳에 별점을 남겨 보세요'}</div></div>
+      <div class="kpi"><div class="k">📝 후기 · 📷 사진</div>
+        <div class="v">${reviews}<small>개</small> <span style="font-size:18px;color:var(--sub)">·</span> ${photoN}<small>장</small></div>
+        <div class="s">가본 곳 ${visited}곳 기록</div></div>
     </div>
+
+    ${best.length ? `<div class="label">내 베스트 명소 <button data-goto="saved" data-sort="rate">별점순 보기</button></div>
+    <div class="card" style="padding:4px 14px">${best.map(p => { const t = themeOf(p.theme);
+      return `<a class="mini" href="${esc(Links.kakaoPlace(p))}" target="_blank" rel="noopener" style="--c:${esc(themeColor(t))}">
+        <span class="dot">${(p.photos||[]).length ? `<img data-ph="${esc(p.photos[0])}" alt="" style="width:34px;height:34px;border-radius:11px;object-fit:cover">` : (t ? esc(t.em) : '📍')}</span>
+        <span class="tx"><b>${esc(p.name)}</b><span>${starsHTML(p.rating)} ${fmtRate(p.rating)}${p.review ? ' · ' + esc(p.review.slice(0,24)) + (p.review.length > 24 ? '…' : '') : ''}</span></span>
+      </a>`; }).join('')}</div>` : ''}
 
     <div class="label">테마로 바로 찾기 <button data-goto="find">전체 보기</button></div>
     <div class="hscroll">${themes.map((t,i) =>
@@ -888,9 +1101,12 @@ function renderDash(){
       : `<div class="empty" style="padding:18px 8px">저장한 명소가 여기에 보여요.</div>`}</div>
   `;
 }
+const _renderDash = renderDash;
+renderDash = function(){ _renderDash(); fillPhotos($('#dash')); };
 $('#dash').addEventListener('click', e => {
   const q = e.target.closest('[data-q]'); if (q) return openSearchSheet(themes[+q.dataset.q]);
-  const g = e.target.closest('[data-goto]'); if (g) return showTab(g.dataset.goto);
+  const g = e.target.closest('[data-goto]');
+  if (g){ if (g.dataset.sort) $('#savedSort').value = g.dataset.sort; return showTab(g.dataset.goto); }
 });
 
 // ---------- 탭 ----------
@@ -926,7 +1142,7 @@ function openSettings(){
     <button class="btn primary" id="sSave" style="width:100%">설정 저장</button>
     <hr>
     <div class="label" style="margin-top:0">데이터 백업 (저장 장소·테마)</div>
-    <p class="hint" style="margin-top:0">데이터는 이 휴대폰 브라우저 안에만 저장돼요. 폰을 바꾸거나 브라우저 데이터를 지우기 전에 백업 파일을 받아 두세요.</p>
+    <p class="hint" style="margin-top:0">별점·후기·사진도 함께 백업돼요. 데이터는 이 휴대폰 브라우저 안에만 저장돼요. 폰을 바꾸거나 브라우저 데이터를 지우기 전에 백업 파일을 받아 두세요.</p>
     <div class="row">
       <button class="btn ghost" id="sExport" style="flex:1">⬇️ 백업 받기</button>
       <button class="btn ghost" id="sImport" style="flex:1">⬆️ 백업 불러오기</button>
@@ -947,8 +1163,10 @@ function openSettings(){
     closeSheet(); toast('설정을 저장했어요');
     if (keyChanged) setTimeout(() => location.reload(), 500);   // 새 키로 지도 다시 불러오기
   };
-  $('#sExport').onclick = () => {
-    const blob = new Blob([JSON.stringify({app:'myeongso', v:1, exportedAt:new Date().toISOString(), themes, places, recents}, null, 2)], {type:'application/json'});
+  $('#sExport').onclick = async () => {
+    const photoData = {};
+    for (const p of places) for (const id of (p.photos || [])){ try{ const d = await PhotoDB.get(id); if (d) photoData[id] = d; }catch(e){} }
+    const blob = new Blob([JSON.stringify({app:'myeongso', v:2, exportedAt:new Date().toISOString(), themes, places, recents, photos:photoData})], {type:'application/json'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `명소찾기_백업_${new Date().toISOString().slice(0,10)}.json`; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -964,8 +1182,9 @@ function openSettings(){
       places = places.concat(d.places.filter(p => !ids.has(p.id)));
       const tids = new Set(themes.map(t => t.id));
       themes = themes.concat(d.themes.filter(t => !tids.has(t.id)));
+      for (const [id, data] of Object.entries(d.photos || {})){ try{ await PhotoDB.put(id, data); }catch(e){} }
       LS.set('places', places); LS.set('themes', themes);
-      closeSheet(); renderThemes(); renderSaved(); toast('백업을 불러왔어요');
+      closeSheet(); renderThemes(); renderSaved(); renderDash(); toast('백업을 불러왔어요');
     }catch(err){ toast('백업 파일 형식이 아니에요'); }
   };
   $('#sResetThemes').onclick = () => {

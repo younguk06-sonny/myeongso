@@ -1,0 +1,17 @@
+{
+  "name": "명소찾기 - TV맛집·로또명당",
+  "short_name": "명소찾기",
+  "description": "TV 맛집·로또 명당 등 내가 찾는 명소를 네이버지도·카카오맵으로 바로 찾고 저장하는 앱",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f4f1",
+  "theme_color": "#ff6a4d",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

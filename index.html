@@ -180,6 +180,17 @@ nav.tabs button.on{color:var(--accent);font-weight:800}
 .mk{background:var(--c,var(--accent));color:#10161d;font-weight:800;font-size:12px;border-radius:999px;min-width:26px;height:26px;
   padding:0 7px;display:grid;place-items:center;border:2px solid #10161d;box-shadow:0 2px 8px rgba(0,0,0,.45)}
 .mk.saved{border-color:#fff}
+.mk.pk{--c:#2563eb;color:#fff;border-color:#fff;border-radius:8px;height:24px;min-width:24px;padding:0 6px;font-size:11px;white-space:nowrap}
+.mk.pk.free{--c:#16a34a}
+.pkc{border-left:3px solid #2563eb}
+.pkc.free{border-left-color:#16a34a}
+.pkc .top{display:flex;align-items:flex-start;gap:8px}
+.pkc .top h3{flex:1;min-width:0;margin:0;font-size:15.5px}
+.pkc .dist{font-weight:800;color:var(--accent);font-size:13px;white-space:nowrap}
+.pkfee{margin:6px 0 2px;font-size:13px;color:var(--sub)}
+.pkfee b{font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums;margin-left:2px}
+.pkfee .free{color:#16a34a;font-size:16px}
+.pkfee .unk{color:var(--sub);font-size:14px}
 .mk.me{background:#4da3ff;min-width:16px;height:16px;padding:0;border:3px solid #fff;box-shadow:0 0 0 6px rgba(77,163,255,.25)}
 
 /* sheet */
@@ -296,7 +307,8 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
       </div>
       <div class="row" style="margin:10px 0 4px;justify-content:space-between">
         <div class="meta" id="mapInfo">핀을 누르면 카카오맵·네이버지도 앱으로 열 수 있어요.</div>
-        <button class="btn small ghost" id="btnShowSaved">⭐ 저장 표시</button>
+        <div class="row" style="gap:6px"><button class="btn small ghost" id="btnShowPk">🅿️ 주차장</button>
+        <button class="btn small ghost" id="btnShowSaved">⭐ 저장 표시</button></div>
       </div>
       <div id="mapResults"></div>
       <div style="text-align:center"><button class="btn ghost" id="btnMore" style="display:none">결과 더 보기</button></div>
@@ -396,11 +408,12 @@ const DEFAULT_THEMES = [
   {id:'tteok', cat:'dessert', c:'#a3c76d', em:'🍡', name:'떡집', kw:'떡집', web:'떡집 맛집', mapQ:'떡집', mapKw:'떡집'},
   {id:'market', cat:'etc', c:'#f59e0b', em:'🏪', name:'전통시장', kw:'전통시장', web:'전통시장 먹거리', mapQ:'전통시장', mapKw:'전통시장'},
   {id:'camp', cat:'etc', c:'#22a06b', em:'🏕️', name:'캠핑장', kw:'캠핑장', web:'캠핑장 추천', mapQ:'캠핑장', mapKw:'캠핑장'},
+  {id:'parking', cat:'etc', c:'#2563eb', em:'🅿️', name:'주차장', special:'parking', kw:'주차장', mapQ:'주차장', mapKw:'공영주차장'},
   {id:'kids', cat:'etc', c:'#60a5fa', em:'🧸', name:'키즈카페', kw:'키즈카페', web:'키즈카페 추천', mapQ:'키즈카페', mapKw:'키즈카페'},
   {id:'view', cat:'cafe', c:'#3cc8dc',  em:'🌅', name:'뷰 맛집·카페', kw:'루프탑 카페', web:'뷰 맛집 카페', mapQ:'루프탑 카페', mapKw:'루프탑 카페',
     note:'바닷가 지역은 ‘오션뷰 카페’로 직접 검색하면 더 잘 나와요. 일부 지역은 루프탑 식당이 섞일 수 있어요.'}
 ];
-const THEME_VER = 4;
+const THEME_VER = 5;
 // 대분류
 const CATS = [
   {id:'food', em:'🍽️', name:'맛집'}, {id:'bakery', em:'🥐', name:'빵집'}, {id:'cafe', em:'☕', name:'카페'},
@@ -421,7 +434,7 @@ let themes   = LS.get('themes', null) || DEFAULT_THEMES.slice();
 if ((LS.get('themesVer', 1)) < THEME_VER){
   const prevVer = LS.get('themesVer', 1);
   themes = themes.map(t => { const d = DEFAULT_THEMES.find(x => x.id === t.id);
-    return d ? Object.assign({}, t, {cat:t.cat || d.cat, tv:d.tv, kakao:d.kakao, kw:d.kw, web:d.web, mapQ:d.mapQ, mapKw:d.mapKw, exclude:d.exclude, note:d.note, extra:d.extra}) : t; });
+    return d ? Object.assign({}, t, {cat:t.cat || d.cat, special:d.special, tv:d.tv, kakao:d.kakao, kw:d.kw, web:d.web, mapQ:d.mapQ, mapKw:d.mapKw, exclude:d.exclude, note:d.note, extra:d.extra}) : t; });
   // v3에서 새로 생긴 기본 테마(백반기행·생생정보·맛있는녀석들)를 한 번만 추가
   if (prevVer < 3){ let at = themes.findIndex(t => t.id === 'dal'); at = at >= 0 ? at + 1 : themes.length;
     ['bbg','ssj','mnj'].forEach(id => { if (!themes.some(t => t.id === id)){
@@ -429,6 +442,10 @@ if ((LS.get('themesVer', 1)) < THEME_VER){
   // v4: 빵집·카페·디저트·기타 대분류용 새 테마를 한 번만 추가
   if (prevVer < 4) ['salt','bagel','sikbbang','mood','bigcafe','brunch','dcafe','cake','macaron','bingsu','tteok','market','camp','kids'].forEach(id => {
     if (!themes.some(t => t.id === id)) themes.push(Object.assign({}, DEFAULT_THEMES.find(x => x.id === id))); });
+  if (prevVer < 5 && !themes.some(t => t.id === 'parking')){
+    const at = themes.findIndex(t => t.id === 'lotto');
+    themes.splice(at >= 0 ? at + 1 : themes.length, 0, Object.assign({}, DEFAULT_THEMES.find(x => x.id === 'parking')));
+  }
   if (LS.get('themes', null)) LS.set('themes', themes);
   LS.set('themesVer', THEME_VER);
 }
@@ -436,7 +453,7 @@ let places   = LS.get('places', []);          // 저장한 장소
 let recents  = LS.get('recents', []);         // 최근 지역
 // 앱에 기본으로 들어 있는 카카오 JavaScript 키 (https://younguk06-sonny.github.io 에서만 동작)
 // 설정에서 다른 키를 넣으면 그 키를 우선 사용
-const APP_VER = '2026.11.06-3';   // 고칠 때마다 올림 (설정 화면 맨 아래에 표시)
+const APP_VER = '2026.11.06-4';   // 고칠 때마다 올림 (설정 화면 맨 아래에 표시)
 const BUILTIN_KAKAO_KEY = '76e1f2c0c1f996041b2d1c9441792ea1';
 function kakaoKey(){ return settings.kakaoKey || BUILTIN_KAKAO_KEY; }
 let settings = Object.assign({kakaoKey:'', openMode:'web', radius:3000, mode:'light'}, LS.get('settings', {}));
@@ -658,6 +675,7 @@ function openThemeForm(i, presetCat){
 
 // ---------- 검색 시트 ----------
 function openSearchSheet(theme, freeText){
+  if (theme && theme.special === 'parking') return openParkingSheet();
   const area = currentArea();
   if (!useMyLoc && area) rememberRegion(area);
   const pre = area ? area + ' ' : '';
@@ -1128,6 +1146,23 @@ const MapView = {
   map: null, eng: null, engName: '', el: null,
   marks: [], savedMarks: [], meRm: null, circleRm: null,
   showSaved: true, results: [], themeId: '', pg: null, _busy: null,
+  showPk: false, pkList: [], pkMarks: [],
+  drawPk(){
+    this.pkMarks.forEach(rm => rm()); this.pkMarks = [];
+    if (!this.showPk || !this.map) return;
+    this.pkList.forEach(p => this.pkMarks.push(this.eng.marker(this.map, p, pkPin(p), 2,
+      () => openSheet(`<h2>🅿️ 주차장</h2>${pkCard(p)}${pkSourceNote()}`))));
+  },
+  async loadPkAround(){
+    if (!this.map) return;
+    const c = this.eng.center(this.map);
+    $('#mapInfo').textContent = '주변 주차장을 불러오는 중…';
+    try{
+      this.pkList = (await PK.near(c, Math.min(Math.max(settings.radius, 1000), 5000))).slice(0, 150);
+      $('#mapInfo').textContent = this.pkList.length ? `주차장 ${this.pkList.length}곳 (P 옆 숫자는 1시간 요금)` : '이 주변엔 등록된 주차장 정보가 없어요';
+    }catch(e){ this.pkList = []; $('#mapInfo').textContent = '주차장 정보를 불러오지 못했어요'; }
+    this.drawPk();
+  },
   drawProviderUI(using){
     const note = $('#mapNote');
     if (using === 'kakao' || !using){ note.hidden = true; }
@@ -1147,7 +1182,7 @@ const MapView = {
     let want = kakaoKey() ? 'kakao' : 'osm';
     if (this.map && this.engName === want && !force){ this.eng.relayout(this.map, this.el); this.drawProviderUI(want); return; }
     // 이전 지도 치우기
-    this.map = null; this.marks = []; this.savedMarks = []; this.meRm = this.circleRm = null;
+    this.map = null; this.marks = []; this.savedMarks = []; this.pkMarks = []; this.meRm = this.circleRm = null;
     const box = $('#map'); box.innerHTML = '<div class="mapempty">지도를 불러오는 중…</div>';
     let ok = await Engines[want].load();
     if (!ok && want !== 'osm'){ toast(`${Engines[want].label}를 불러오지 못해 기본 지도로 보여드려요`); want = 'osm'; ok = await Engines.osm.load(); }
@@ -1156,7 +1191,7 @@ const MapView = {
     this.el = el; this.eng = Engines[want]; this.engName = want;
     this.map = this.eng.create(el, myPos || {lat: 37.5665, lng: 126.9780});
     this.drawProviderUI(want);
-    this.drawMe(); this.refreshSaved();
+    this.drawMe(); this.refreshSaved(); this.drawPk();
     if (this.results.length) this.drawResults(false);
     if (!myPos) locate().then(p => { if (!this.map) return; this.eng.setCenter(this.map, p); this.drawMe(); }).catch(() => {});
   },
@@ -1276,6 +1311,11 @@ $('#btnMapMe').addEventListener('click', async () => {
 $('#btnMapSearch').addEventListener('click', () => MapView.search(MapView.themeId));
 $('#mapQ').addEventListener('keydown', e => { if (e.key === 'Enter') MapView.search(MapView.themeId); });
 $('#btnMore').addEventListener('click', () => MapView.more());
+function drawPkBtn(){ $('#btnShowPk').textContent = MapView.showPk ? '🅿️ 주차장 숨김' : '🅿️ 주차장'; $('#btnShowPk').classList.toggle('primary', MapView.showPk); }
+$('#btnShowPk').addEventListener('click', async () => {
+  MapView.showPk = !MapView.showPk; drawPkBtn();
+  if (MapView.showPk) await MapView.loadPkAround(); else MapView.drawPk();
+});
 $('#btnShowSaved').addEventListener('click', () => {
   MapView.showSaved = !MapView.showSaved; MapView.refreshSaved();
   $('#btnShowSaved').textContent = MapView.showSaved ? '⭐ 저장 표시' : '☆ 저장 숨김';
@@ -1290,6 +1330,140 @@ $('#mapResults').addEventListener('click', e => {
   const card = e.target.closest('[data-res]');
   if (card && !e.target.closest('a,button')) MapView.openResult(+card.dataset.res);
 });
+
+// ---------- 주차장 (공공데이터포털 전국주차장정보표준데이터, tools/build_parking.py 로 만든 parking/*.json) ----------
+const PK = {
+  idx: null, cache: {},
+  async index(){
+    if (!this.idx){ const r = await fetch('parking/index.json'); if (!r.ok) throw new Error('no index'); this.idx = await r.json(); }
+    return this.idx;
+  },
+  async tile(k){
+    if (this.cache[k]) return this.cache[k];
+    const idx = await this.index();
+    if (!idx.tiles.includes(k)) return (this.cache[k] = []);
+    const r = await fetch('parking/' + k + '.json');
+    return (this.cache[k] = r.ok ? await r.json() : []);
+  },
+  // c 중심 radiusM 미터 안의 주차장 (가까운 순)
+  async near(c, radiusM){
+    const T = (await this.index()).tile;
+    const dLat = radiusM / 111000, dLng = radiusM / (111000 * Math.cos(c.lat * Math.PI / 180));
+    const keys = [];
+    for (let a = Math.floor((c.lat - dLat) / T); a <= Math.floor((c.lat + dLat) / T); a++)
+      for (let b = Math.floor((c.lng - dLng) / T); b <= Math.floor((c.lng + dLng) / T); b++) keys.push(a + '_' + b);
+    const rows = (await Promise.all(keys.map(k => this.tile(k)))).flat();
+    return rows.map(pkObj).map(p => (p.dist = distKm(c, p) * 1000, p))
+      .filter(p => p.dist <= radiusM).sort((x, y) => x.dist - y.dist);
+  }
+};
+function pkObj(r){
+  return {name:r[0], kind:r[1], type:r[2], addr:r[3], lots:r[4], days:r[5], wk:r[6], sa:r[7], ho:r[8], fee:r[9],
+    bm:r[10], bf:r[11], am:r[12], af:r[13], day:r[14], mon:r[15], pay:r[16], note:r[17], org:r[18], tel:r[19],
+    lat:r[20], lng:r[21], date:r[22]};
+}
+const won = n => Number(n).toLocaleString('ko-KR') + '원';
+// 1시간 주차 요금 (0 = 무료, null = 계산할 정보 없음, -1 = 값이 이상해서 확인 필요)
+function pkHour(p){
+  if (p.fee === '무료') return 0;
+  if (p.bf == null || p.bm == null || p.bm <= 0) return null;
+  if (p.bf === 0 && !p.af) return null;          // 유료인데 금액 0 → 정보 누락으로 봄
+  let fee;
+  if (p.bm >= 60) fee = p.bf;
+  else if (p.am > 0 && p.af != null) fee = p.bf + Math.ceil((60 - p.bm) / p.am) * p.af;
+  else return null;
+  if (p.day > 0 && fee > p.day) fee = p.day;     // 1일 주차권보다 비싸지 않게
+  if (fee > 15000) return -1;                    // 1시간 1만5천원 초과는 입력 오류일 가능성이 커서 '확인 필요'
+  return fee;
+}
+function pkFeeDetail(p){
+  if (p.fee === '무료') return '무료 주차장';
+  const a = [];
+  if (p.bm != null && p.bf != null && !(p.bf === 0 && !p.af)) a.push(`기본 ${p.bm}분 ${won(p.bf)}`);
+  if (p.am > 0 && p.af != null) a.push(`추가 ${p.am}분당 ${won(p.af)}`);
+  if (p.day > 0) a.push(`1일 ${won(p.day)}`);
+  if (p.mon > 0) a.push(`월정기 ${won(p.mon)}`);
+  return a.length ? a.join(' · ') : '요금 금액이 등록되지 않았어요';
+}
+function pkToday(p){
+  const d = new Date().getDay();
+  const h = d === 0 ? p.ho : d === 6 ? p.sa : p.wk;
+  if (!h) return '';
+  if (/^00:00-(23:59|24:00|00:00)$/.test(h)) return '24시간';
+  return h.replace('-', '~');
+}
+function pkPin(p){
+  const h = pkHour(p);
+  const lbl = h === 0 ? '무료' : (h == null || h < 0) ? '' : (h >= 10000 ? (h / 10000).toFixed(1).replace('.0','') + '만' : h.toLocaleString('ko-KR'));
+  return `<div class="mk pk ${h === 0 ? 'free' : ''}">P${lbl ? ' ' + lbl : ''}</div>`;
+}
+function pkCard(p){
+  const h = pkHour(p), today = pkToday(p);
+  const fee = h === 0 ? '<span class="free">무료</span>' : h === -1 ? '<span class="unk">요금 확인 필요 (등록된 값이 이상해요)</span>' : h == null ? '<span class="unk">요금 정보 없음' + (p.fee ? ' (' + esc(p.fee) + ')' : '') + '</span>' : `1시간 <b>${won(h)}</b>`;
+  const pos = {name: p.name, lat: p.lat, lng: p.lng};
+  return `<div class="card pkc ${h === 0 ? 'free' : ''}">
+    <div class="top"><h3>${esc(p.name)}</h3>${p.dist != null ? `<span class="dist">${fmtDist(p.dist / 1000)}</span>` : ''}</div>
+    <div><span class="badge" style="--c:#2563eb">${esc(p.kind || '')}${p.type ? '·' + esc(p.type) : ''}</span>${p.lots ? `<span class="meta">${p.lots}면</span>` : ''}</div>
+    <div class="pkfee">${fee}</div>
+    ${h == null && p.fee !== '혼합' ? '' : `<div class="meta">${esc(pkFeeDetail(p))}</div>`}
+    <div class="meta">${today ? '오늘 ' + esc(today) + ' · ' : ''}${esc(p.addr || '')}</div>
+    ${p.note ? `<div class="meta">ℹ️ ${esc(p.note)}</div>` : ''}
+    <div class="actions">
+      <a class="lnk kakao" href="${esc(Links.kakaoPlace(pos))}" target="_blank" rel="noopener">카카오맵</a>
+      <a class="lnk plain" href="${esc(Links.kakaoRoute(pos))}" target="_blank" rel="noopener">🚗 길찾기</a>
+      <a class="lnk naver" href="${esc(Links.naverSearch(p.name + ' ' + (p.addr || '').split(' ').slice(1,3).join(' ')))}" target="_blank" rel="noopener">네이버</a>
+      ${p.tel && !/^0{2,3}-0{3,4}-0{4}$/.test(p.tel) ? `<span class="meta" style="align-self:center">☎ ${esc(p.tel)}</span>` : ''}
+    </div></div>`;
+}
+function pkSourceNote(){
+  const d = PK.idx && PK.idx.latest ? ` (최신 기준일 ${PK.idx.latest})` : '';
+  return `<p class="hint">출처: 공공데이터포털 전국주차장정보표준데이터${d}. 지자체가 올린 정보라 실제 요금·운영시간과 다를 수 있어요. 1시간 요금은 기본·추가 요금으로 계산한 값이에요.</p>`;
+}
+// 주차장 찾기 시트
+let pkFilter = 'all', pkSort = 'dist';
+async function openParkingSheet(){
+  openSheet(`<h2>🅿️ 주변 주차장</h2><div class="q" id="pkWhere">위치 확인 중…</div><div id="pkBody"><div class="empty">불러오는 중…</div></div>`);
+  let c = null, where = '';
+  const area = currentArea();
+  try{
+    if (!useMyLoc && area){
+      if (await Kakao.ready()){ const r = await Kakao.keyword(area, {size: 1}); if (r[0]){ c = {lat: +r[0].y, lng: +r[0].x}; where = area; } }
+    }
+    if (!c){ c = myPos || await locate(); where = myArea || '현재 위치'; }
+  }catch(e){ $('#pkBody').innerHTML = `<div class="empty">${esc(e.message)}<br>지역을 입력하거나 위치를 켜 주세요.</div>`; $('#pkWhere').textContent = ''; return; }
+  let radius = settings.radius, list = [];
+  try{
+    list = await PK.near(c, radius);
+    if (list.length < 3 && radius < 3000){ radius = 3000; list = await PK.near(c, radius); }
+  }catch(e){ $('#pkBody').innerHTML = '<div class="empty">주차장 정보를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.</div>'; return; }
+  const rLabel = radius >= 1000 ? (radius / 1000) + 'km' : radius + 'm';
+  $('#pkWhere').textContent = `📍 ${where} 기준 · 반경 ${rLabel} · ${list.length}곳`;
+  const draw = () => {
+    let l = list.slice();
+    if (pkFilter === 'free') l = l.filter(p => pkHour(p) === 0);
+    if (pkFilter === 'public') l = l.filter(p => p.kind === '공영');
+    const fv = p => { const h = pkHour(p); return h == null || h < 0 ? 1e9 : h; };
+    if (pkSort === 'fee') l.sort((a, b) => fv(a) - fv(b) || a.dist - b.dist);
+    const chip = (k, v, label, cur) => `<button class="chip ${cur === v ? 'on' : ''}" data-${k}="${v}">${label}</button>`;
+    $('#pkBody').innerHTML = `
+      <div class="chips" style="margin:0 0 6px">${chip('pf','all','전체',pkFilter)}${chip('pf','free','무료만',pkFilter)}${chip('pf','public','공영만',pkFilter)}
+        <span style="flex:1"></span>${chip('ps','dist','가까운순',pkSort)}${chip('ps','fee','1시간 요금순',pkSort)}</div>
+      ${list.length ? `<button class="btn primary" id="pkMap" style="width:100%;margin:6px 0 10px">🗺️ 지도에서 보기</button>` : ''}
+      ${l.length ? l.slice(0, 40).map(pkCard).join('') : '<div class="empty">조건에 맞는 주차장이 없어요.</div>'}
+      ${l.length > 40 ? `<p class="hint">가까운 40곳만 보여드려요. 반경을 줄이면 더 정확해요.</p>` : ''}
+      ${pkSourceNote()}`;
+    $('#pkBody').querySelectorAll('[data-pf]').forEach(b => b.onclick = () => { pkFilter = b.dataset.pf; draw(); });
+    $('#pkBody').querySelectorAll('[data-ps]').forEach(b => b.onclick = () => { pkSort = b.dataset.ps; draw(); });
+    const pm = $('#pkMap');
+    if (pm) pm.onclick = async () => {
+      closeSheet(); showTab('map'); await MapView.init();
+      MapView.showPk = true; drawPkBtn(); MapView.pkList = list.slice(0, 150); MapView.drawPk();
+      if (MapView.map){ const pts = MapView.pkList.concat([c]); MapView.eng.fit(MapView.map, pts); }
+      $('#mapInfo').textContent = `주차장 ${MapView.pkList.length}곳 (P 옆 숫자는 1시간 요금)`;
+    };
+  };
+  draw();
+}
 
 // ---------- 대시보드 ----------
 function renderDash(){

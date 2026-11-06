@@ -152,6 +152,12 @@ nav.tabs button.on{color:var(--accent);font-weight:800}
 .view{display:none}.view.on{display:block}
 
 /* map */
+.dmap{position:relative;margin-bottom:10px}
+#dashMap{position:relative;z-index:0;width:100%;height:230px;border-radius:var(--radius);overflow:hidden;background:var(--card2);box-shadow:var(--shadow)}
+.dmap .open{position:absolute;left:10px;bottom:10px;z-index:5;border:0;border-radius:12px;padding:8px 12px;font-size:13px;font-weight:800;
+  background:var(--card);color:var(--ink);box-shadow:0 2px 10px rgba(0,0,0,.18)}
+.dmap .cap{position:absolute;left:10px;top:10px;z-index:5;border-radius:10px;padding:5px 9px;font-size:12px;font-weight:700;
+  background:var(--card);color:var(--sub);box-shadow:0 2px 8px rgba(0,0,0,.12);pointer-events:none}
 #map{position:relative;z-index:0;width:100%;height:52vh;min-height:300px;border-radius:var(--radius);overflow:hidden;background:var(--card2)}
 .mapbox{position:relative}
 .mapfab{position:absolute;right:10px;bottom:10px;z-index:5;width:42px;height:42px;border:0;border-radius:12px;background:var(--card);color:var(--ink);
@@ -230,7 +236,14 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
 
   <!-- ⓪ 대시보드 -->
   <main class="view on" id="v-dash">
-    <div class="section" id="dash"></div>
+    <div class="section" style="padding-bottom:0">
+      <div class="dmap">
+        <div id="dashMap"><div class="mapempty">지도를 불러오는 중…</div></div>
+        <span class="cap" id="dashMapCap">내 주변</span>
+        <button class="open" id="dashMapOpen">🗺️ 지도 크게 보기 ›</button>
+      </div>
+    </div>
+    <div class="section" id="dash" style="padding-top:0"></div>
   </main>
 
   <!-- ① 찾기 -->
@@ -1283,8 +1296,56 @@ function renderDash(){
       : `<div class="empty" style="padding:18px 8px">저장한 명소가 여기에 보여요.</div>`}</div>
   `;
 }
+// ---------- 대시보드 미니 지도 ----------
+const DashMap = {
+  map: null, eng: null, marks: [], _busy: null,
+  async init(){
+    if (this.map) return true;
+    if (this._busy) return this._busy;
+    this._busy = (async () => {
+      let name = kakaoKey() ? 'kakao' : 'osm';
+      let ok = await Engines[name].load();
+      if (!ok && name !== 'osm'){ name = 'osm'; ok = await Engines.osm.load(); }
+      const box = $('#dashMap');
+      if (!ok){ box.innerHTML = '<div class="mapempty">지도를 불러오지 못했어요</div>'; return false; }
+      box.innerHTML = ''; const el = document.createElement('div'); el.style.cssText = 'position:absolute;inset:0'; box.appendChild(el);
+      this.eng = Engines[name];
+      this.map = this.eng.create(el, myPos || {lat: 37.5665, lng: 126.9780});
+      return true;
+    })().finally(() => { this._busy = null; });
+    return this._busy;
+  },
+  async refresh(){
+    if (!$('#v-dash').classList.contains('on')) return;
+    if (!await this.init()) return;
+    const m = this.map, eng = this.eng;
+    eng.relayout(m);
+    this.marks.forEach(rm => rm()); this.marks = [];
+    const pts = places.filter(p => p.lat);
+    pts.forEach(p => this.marks.push(eng.marker(m, p,
+      `<div class="mk saved" style="--c:${esc(themeColor(themeOf(p.theme)))}">★</div>`, 3,
+      () => { openSheet(placeCard(p)); fillPhotos($('#sheet')); })));
+    const rLabel = (RADII.find(x => x[0] === settings.radius) || [0,''])[1];
+    if (myPos){
+      this.marks.push(eng.circle(m, myPos, settings.radius));
+      this.marks.push(eng.marker(m, myPos, '<div class="mk me"></div>', 1));
+      // 반경 원이 꽉 차게 보이도록
+      const dLat = settings.radius / 111000, dLng = settings.radius / (111000 * Math.cos(myPos.lat * Math.PI / 180));
+      eng.fit(m, [{lat: myPos.lat - dLat, lng: myPos.lng - dLng}, {lat: myPos.lat + dLat, lng: myPos.lng + dLng}]);
+      const inR = pts.filter(p => distKm(myPos, p) * 1000 <= settings.radius).length;
+      $('#dashMapCap').textContent = `📍 ${myArea || '내 주변'} · 반경 ${rLabel} · ★ ${inR}곳`;
+    } else if (pts.length){
+      eng.fit(m, pts);
+      $('#dashMapCap').textContent = `★ 저장한 명소 ${pts.length}곳`;
+    } else {
+      $('#dashMapCap').textContent = '위치를 켜면 내 주변이 보여요';
+    }
+  }
+};
+$('#dashMapOpen').addEventListener('click', () => showTab('map'));
+
 const _renderDash = renderDash;
-renderDash = function(){ _renderDash(); fillPhotos($('#dash')); };
+renderDash = function(){ _renderDash(); fillPhotos($('#dash')); DashMap.refresh(); };
 $('#dash').addEventListener('click', e => {
   const q = e.target.closest('[data-q]'); if (q) return openSearchSheet(themes[+q.dataset.q]);
   const g = e.target.closest('[data-goto]');

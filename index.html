@@ -82,6 +82,14 @@ header .where b{color:var(--accent);font-weight:700}
 .status{font-size:12.5px;color:var(--sub);margin-top:8px;min-height:1em}
 
 /* theme grid */
+.cuis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px 8px;margin-bottom:4px}
+.cu{border:0;background:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;color:var(--ink)}
+.cuimg{width:100%;max-width:72px;aspect-ratio:1;border-radius:22px;background:var(--card2);display:grid;place-items:center;
+  font-size:clamp(28px,8.5vw,40px);line-height:1;box-shadow:inset 0 -2px 0 rgba(0,0,0,.03);transition:transform .12s}
+.cu:active .cuimg{transform:scale(.94)}
+.cunm{font-size:12.5px;font-weight:700;white-space:nowrap;letter-spacing:-.3px}
+.cubar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:4px 0 10px;padding:10px 12px;border-radius:14px;background:var(--card);box-shadow:var(--shadow)}
+.cubar .lnk{padding:6px 9px;font-size:12.5px}
 .cats{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 10px;padding-bottom:2px}
 .cats::-webkit-scrollbar{display:none}
 .cat{flex:0 0 auto;border:1.5px solid var(--line);background:var(--card);color:var(--sub);border-radius:999px;padding:7px 13px;font-size:13.5px;font-weight:800}
@@ -279,6 +287,8 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
         <div class="status" id="locStatus"></div>
       </div>
 
+      <div class="label">음식 종류로 찾기</div>
+      <div id="findCuis"></div>
       <div class="label">테마로 찾기 <button id="btnEditThemes">편집</button></div>
       <div class="cats" id="findCats"></div>
       <div class="grid" id="themeGrid"></div>
@@ -312,6 +322,7 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
         <div class="row" style="gap:6px"><button class="btn small ghost" id="btnShowPk">🅿️ 주차장</button>
         <button class="btn small ghost" id="btnShowSaved">⭐ 저장 표시</button></div>
       </div>
+      <div class="cubar" id="mapCuisineBar" hidden></div>
       <div id="mapResults"></div>
       <div style="text-align:center"><button class="btn ghost" id="btnMore" style="display:none">결과 더 보기</button></div>
     </div>
@@ -417,9 +428,51 @@ const DEFAULT_THEMES = [
     note:'바닷가 지역은 ‘오션뷰 카페’로 직접 검색하면 더 잘 나와요. 일부 지역은 루프탑 식당이 섞일 수 있어요.'}
 ];
 const THEME_VER = 5;
+// 음식 종류 (2026-11-06 지역 5곳 실검색으로 확인. 카카오 장소 분류명 'category_name'에 tok 중 하나가 들어간 가게만 보여줌 → 엉뚱한 가게 제외)
+const CUISINES = [
+  {id:'kor',   em:'🍚', name:'한식',       kw:'한식',       tok:['한식']},
+  {id:'chn',   em:'🥟', name:'중식',       kw:'중식',       tok:['중식']},
+  {id:'jpn',   em:'🍣', name:'일식',       kw:'일식',       tok:['일식']},
+  {id:'wst',   em:'🍝', name:'양식',       kw:'양식',       tok:['양식']},
+  {id:'snack', em:'🍢', name:'분식',       kw:'분식',       tok:['분식']},
+  {id:'chk',   em:'🍗', name:'치킨',       kw:'치킨',       tok:['치킨']},
+  {id:'pizza', em:'🍕', name:'피자',       kw:'피자',       tok:['피자']},
+  {id:'fast',  em:'🍔', name:'패스트푸드', kw:'패스트푸드', tok:['패스트푸드','햄버거']},
+  {id:'meat',  em:'🥩', name:'고기·구이',  kw:'고기집',     tok:['육류,고기','곱창,막창','삼겹살','갈비']},
+  {id:'sea',   em:'🦀', name:'회·해산물',  kw:'횟집',       tok:['해물,생선','회','조개','게,대게']},
+  {id:'soup',  em:'🍲', name:'국밥·찌개',  kw:'국밥',       tok:['국밥','찌개,전골','해장국','설렁탕','감자탕','곰탕']},
+  {id:'asia',  em:'🍛', name:'아시안',     kw:'아시아음식', tok:['아시아음식','베트남','태국','인도']},
+  {id:'bar',   em:'🍺', name:'술집',       kw:'술집',       tok:['술집']},
+  {id:'cafe',  em:'☕', name:'카페',       kw:'카페',       tok:['카페','커피전문점']},
+  {id:'dsrt',  em:'🍰', name:'디저트',     kw:'디저트 카페',     tok:['디저트카페','제과,베이커리','아이스크림','떡,한과','도넛']}
+];
+function cuisineGrid(){
+  return `<div class="cuis">${CUISINES.map(c => `<button class="cu" data-cu="${c.id}"><span class="cuimg">${c.em}</span><span class="cunm">${c.name}</span></button>`).join('')}</div>`;
+}
+// 음식 종류를 누르면 → 지도 탭에서 내 주변(또는 입력한 지역) 그 종류 가게를 바로 검색
+async function openCuisine(id){
+  const cu = CUISINES.find(c => c.id === id); if (!cu) return;
+  const area = useMyLoc ? '' : currentArea();
+  if (area) rememberRegion(area);
+  showTab('map'); await MapView.init(); if (!MapView.map) return;
+  if (!area && myPos) MapView.eng.setCenter(MapView.map, myPos);
+  $('#mapQ').value = (area ? area + ' ' : '') + cu.kw;
+  MapView.cuisine = cu;
+  const full = (area ? area + ' ' : '') + cu.name + ' 맛집';
+  const bar = $('#mapCuisineBar');
+  bar.hidden = false;
+  bar.innerHTML = `<b>${cu.em} ${esc(cu.name)}</b> <span class="meta">${esc(area || myArea || '내 주변')}</span>
+    <span style="flex:1"></span>
+    <a class="lnk kakao" href="${esc(Links.kakaoSearch((area ? area + ' ' : '') + cu.kw, area ? null : myPos))}" target="_blank" rel="noopener">카카오맵</a>
+    <a class="lnk naver" href="${esc(Links.naverSearch((area ? area + ' ' : '') + cu.kw))}" target="_blank" rel="noopener">네이버</a>
+    <a class="lnk plain" href="${esc(Links.naverBlog(full))}" target="_blank" rel="noopener">후기</a>`;
+  MapView.search('');
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-cu]'); if (b) openCuisine(b.dataset.cu); });
+
 // 대분류
 const CATS = [
-  {id:'food', em:'🍽️', name:'맛집'}, {id:'bakery', em:'🥐', name:'빵집'}, {id:'cafe', em:'☕', name:'카페'},
+  {id:'food', em:'📺', name:'방송 맛집'}, {id:'bakery', em:'🥐', name:'빵집'}, {id:'cafe', em:'☕', name:'카페'},
   {id:'dessert', em:'🍰', name:'디저트'}, {id:'etc', em:'📍', name:'기타'}
 ];
 function catOf(t){
@@ -456,7 +509,7 @@ let places   = LS.get('places', []);          // 저장한 장소
 let recents  = LS.get('recents', []);         // 최근 지역
 // 앱에 기본으로 들어 있는 카카오 JavaScript 키 (https://younguk06-sonny.github.io 에서만 동작)
 // 설정에서 다른 키를 넣으면 그 키를 우선 사용
-const APP_VER = '2026.11.06-7';   // 고칠 때마다 올림 (설정 화면 맨 아래에 표시)
+const APP_VER = '2026.11.06-8';   // 고칠 때마다 올림 (설정 화면 맨 아래에 표시)
 const BUILTIN_KAKAO_KEY = '76e1f2c0c1f996041b2d1c9441792ea1';
 function kakaoKey(){ return settings.kakaoKey || BUILTIN_KAKAO_KEY; }
 let settings = Object.assign({kakaoKey:'', openMode:'web', radius:3000, mode:'light'}, LS.get('settings', {}));
@@ -738,7 +791,7 @@ function openSearchSheet(theme, freeText){
   `);
   const so = $('#sOpenMap');
   if (so) so.onclick = () => {
-    closeSheet(); showTab('map');
+    closeSheet(); showTab('map'); clearCuisine();
     $('#mapQ').value = (!useMyLoc && area ? area + ' ' : '') + inAppKw;
     MapView.search(theme ? theme.id : '');
   };
@@ -1280,6 +1333,7 @@ const MapView = {
     // 테마에 '이름만 같은 가게' 제외 목록이 있으면 빼기 (예: 이영자 맛집 → '이영자삼계탕' 제외)
     const ex = (themeOf(this.themeId) || {}).exclude || [];
     if (ex.length) data = data.filter(r => !ex.some(w => (r.place_name || '').includes(w)));
+    if (this.cuisine) data = data.filter(r => this.cuisine.tok.some(t => (r.category_name || '').includes(t)));
     this.results = this.results.concat(data);
     $('#mapInfo').textContent = this.results.length ? `${this.results.length}곳 찾음 · 핀이나 목록을 누르면 지도를 골라 열 수 있어요` : '결과가 없어요. 지도를 옮기거나 검색어를 바꿔 보세요.';
     this.drawResults(fit);
@@ -1311,8 +1365,9 @@ $('#btnMapMe').addEventListener('click', async () => {
   try{ if (!myPos) await locate(); }catch(e){ return toast(e.message); }
   if (MapView.map){ MapView.eng.setCenter(MapView.map, myPos); MapView.drawMe(); }
 });
-$('#btnMapSearch').addEventListener('click', () => MapView.search(MapView.themeId));
-$('#mapQ').addEventListener('keydown', e => { if (e.key === 'Enter') MapView.search(MapView.themeId); });
+function clearCuisine(){ MapView.cuisine = null; const b = $('#mapCuisineBar'); if (b) b.hidden = true; }
+$('#btnMapSearch').addEventListener('click', () => { clearCuisine(); MapView.search(MapView.themeId); });
+$('#mapQ').addEventListener('keydown', e => { if (e.key === 'Enter'){ clearCuisine(); MapView.search(MapView.themeId); } });
 $('#btnMore').addEventListener('click', () => MapView.more());
 function drawPkBtn(){ $('#btnShowPk').textContent = MapView.showPk ? '🅿️ 주차장 숨김' : '🅿️ 주차장'; $('#btnShowPk').classList.toggle('primary', MapView.showPk); }
 $('#btnShowPk').addEventListener('click', async () => {
@@ -1529,6 +1584,8 @@ function renderDash(){
         <span class="tx"><b>${esc(p.name)}</b><span>${starsHTML(p.rating)} ${fmtRate(p.rating)}${p.review ? ' · ' + esc(p.review.slice(0,24)) + (p.review.length > 24 ? '…' : '') : ''}</span></span>
       </a>`; }).join('')}</div>` : ''}
 
+    <div class="label">무엇을 먹을까요?</div>
+    ${cuisineGrid()}
     <div class="label">테마로 바로 찾기 <button data-goto="find">전체 보기</button></div>
     <div class="cats">${catChips(dashCat, 'data-dc')}</div>
     <div class="hscroll">${themes.map((t,i) => [t,i]).filter(([t]) => dashCat === 'all' || catOf(t) === dashCat).map(([t,i]) =>
@@ -1709,6 +1766,7 @@ function openSettings(){
 $('#btnSettings').addEventListener('click', openSettings);
 
 // ---------- 시작 ----------
+$('#findCuis').innerHTML = cuisineGrid();
 renderThemes(); renderRegionChips(); renderSaved(); renderDash();
 useCurrentLocation(true);   // 앱을 열면 바로 내 위치 기준으로 시작
 if ('serviceWorker' in navigator && location.protocol === 'https:') {

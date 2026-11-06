@@ -476,6 +476,10 @@ const CATS = [
   {id:'food', em:'📺', name:'방송 맛집'}, {id:'bakery', em:'🥐', name:'빵집'}, {id:'cafe', em:'☕', name:'카페'},
   {id:'dessert', em:'🍰', name:'디저트'}, {id:'etc', em:'📍', name:'기타'}
 ];
+// 이 앱 지도에서 결과를 볼 수 있는 테마인지 (카카오가 방송 정보를 못 찾는 방송 테마만 false)
+function inAppOK(t){ return !(t.tv && !t.kakao); }
+// [테마, 원래 순서] 목록을 '앱 지도에서 볼 수 있는 것 먼저'로 정렬 (같은 그룹 안에서는 원래 순서 유지)
+function byInApp(pairs){ return pairs.slice().sort((a, b) => (inAppOK(a[0]) ? 0 : 1) - (inAppOK(b[0]) ? 0 : 1) || a[1] - b[1]); }
 function catOf(t){
   if (t.cat && CATS.some(c => c.id === t.cat)) return t.cat;
   const d = DEFAULT_THEMES.find(x => x.id === t.id); if (d && d.cat) return d.cat;
@@ -510,7 +514,7 @@ let places   = LS.get('places', []);          // 저장한 장소
 let recents  = LS.get('recents', []);         // 최근 지역
 // 앱에 기본으로 들어 있는 카카오 JavaScript 키 (https://younguk06-sonny.github.io 에서만 동작)
 // 설정에서 다른 키를 넣으면 그 키를 우선 사용
-const APP_VER = '2026.11.06-10';   // 고칠 때마다 올림 (설정 화면 맨 아래에 표시)
+const APP_VER = '2026.11.06-11';   // 고칠 때마다 올림 (설정 화면 맨 아래에 표시)
 const BUILTIN_KAKAO_KEY = '76e1f2c0c1f996041b2d1c9441792ea1';
 function kakaoKey(){ return settings.kakaoKey || BUILTIN_KAKAO_KEY; }
 let settings = Object.assign({kakaoKey:'', openMode:'web', radius:3000, mode:'light'}, LS.get('settings', {}));
@@ -669,7 +673,7 @@ function renderThemes(){
       <span class="em">${esc(t.em)}</span><span class="nm">${esc(t.name)}</span>
     </button>`;
   const groups = CATS.filter(c => findCat === 'all' || findCat === c.id).map(c => {
-    const items = themes.map((t,i) => [t,i]).filter(([t]) => catOf(t) === c.id);
+    const items = byInApp(themes.map((t,i) => [t,i]).filter(([t]) => catOf(t) === c.id));
     if (!items.length && findCat === 'all') return '';
     return `<div class="ghead">${c.em} ${c.name} <small>${items.length}</small></div>` +
       (items.length ? items.map(([t,i]) => tile(t,i)).join('') : `<div class="hint" style="grid-column:1/-1">아직 테마가 없어요. ‘테마 추가’로 만들어 보세요.</div>`);
@@ -1559,7 +1563,7 @@ function renderDash(){
   $('#dash').innerHTML = `
     <div class="label" style="margin-top:4px">테마로 바로 찾기 <button data-goto="find">전체 보기</button></div>
     <div class="cats">${catChips(dashCat, 'data-dc')}</div>
-    <div class="hscroll">${themes.map((t,i) => [t,i]).filter(([t]) => dashCat === 'all' || catOf(t) === dashCat).map(([t,i]) =>
+    <div class="hscroll">${byInApp(themes.map((t,i) => [t,i]).filter(([t]) => dashCat === 'all' || catOf(t) === dashCat)).map(([t,i]) =>
       `<button class="qchip" data-q="${i}" style="--c:${esc(themeColor(t))}">${esc(t.em)} ${esc(t.name)}</button>`).join('')
       || '<div class="hint">이 분류에는 아직 테마가 없어요.</div>'}</div>
     ${dashCat === 'food' ? `

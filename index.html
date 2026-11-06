@@ -90,6 +90,19 @@ header .where b{color:var(--accent);font-weight:700}
 .cunm{font-size:12.5px;font-weight:700;white-space:nowrap;letter-spacing:-.3px}
 .cubar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:4px 0 10px;padding:10px 12px;border-radius:14px;background:var(--card);box-shadow:var(--shadow)}
 .cubar .lnk{padding:6px 9px;font-size:12.5px}
+.theme .nb{position:absolute;top:6px;left:6px;width:18px;height:18px;border-radius:6px;background:#03c75a;color:#fff;font-size:11px;font-weight:900;display:grid;place-items:center}
+.nb2{display:inline-block;background:#03c75a;color:#fff;border-radius:5px;font-size:10px;font-weight:900;padding:1px 4px;margin-left:5px;vertical-align:1px;line-height:1.3}
+.card.start{padding:16px}
+.st-title{font-weight:800;font-size:16px}
+.steps{margin:10px 0 14px;padding-left:0;list-style:none;counter-reset:st;display:grid;gap:8px}
+.steps li{counter-increment:st;position:relative;padding-left:30px;font-size:14px;line-height:1.5;word-break:keep-all}
+.steps li::before{content:counter(st);position:absolute;left:0;top:0;width:22px;height:22px;border-radius:50%;background:var(--soft);color:var(--accent);font-weight:800;font-size:12.5px;display:grid;place-items:center}
+.steps li > b:first-child{margin-right:4px}
+.card.nag{background:var(--soft);box-shadow:none;font-size:13.5px}
+.updbar{position:fixed;left:12px;right:12px;bottom:calc(72px + env(safe-area-inset-bottom));z-index:85;max-width:616px;margin:0 auto;
+  display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:14px;background:var(--ink);color:var(--bg);box-shadow:0 6px 20px rgba(0,0,0,.25);font-size:14px;font-weight:700}
+.updbar span{flex:1}
+.updbar .x{border:0;background:none;color:var(--bg);font-size:16px;opacity:.7}
 .cats{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 10px;padding-bottom:2px}
 .cats::-webkit-scrollbar{display:none}
 .cat{flex:0 0 auto;border:1.5px solid var(--line);background:var(--card);color:var(--sub);border-radius:999px;padding:7px 13px;font-size:13.5px;font-weight:800}
@@ -291,6 +304,7 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
       <div id="findCuis"></div>
       <div class="label">테마로 찾기 <button id="btnEditThemes">편집</button></div>
       <div class="cats" id="findCats"></div>
+      <div class="hint" style="margin:-4px 2px 8px">누르면 내 주변 가게가 지도에 바로 나와요. <span class="nb2" style="margin:0 1px">N</span> 표시는 네이버 검색으로 연결돼요.</div>
       <div class="grid" id="themeGrid"></div>
 
       <div class="label">직접 검색</div>
@@ -451,23 +465,30 @@ function cuisineGrid(limit){
   return `<div class="cuis">${list.map(c => `<button class="cu" data-cu="${c.id}"><span class="cuimg">${c.em}</span><span class="cunm">${c.name}</span></button>`).join('')}</div>`;
 }
 // 음식 종류를 누르면 → 지도 탭에서 내 주변(또는 입력한 지역) 그 종류 가게를 바로 검색
-async function openCuisine(id){
-  const cu = CUISINES.find(c => c.id === id); if (!cu) return;
+// 지도 탭에서 바로 검색 (음식 종류·앱 지도에서 볼 수 있는 테마·직접 검색 모두 같은 방식)
+// o: {em, name, q(앱 지도 검색어), mapQ(카카오·네이버 검색어), webQ(후기 검색어), themeId, cuisine, note, extra}
+async function openOnMap(o){
   const area = useMyLoc ? '' : currentArea();
   if (area) rememberRegion(area);
-  showTab('map'); await MapView.init(); if (!MapView.map) return;
+  closeSheet(); showTab('map'); await MapView.init(); if (!MapView.map) return;
   if (!area && myPos) MapView.eng.setCenter(MapView.map, myPos);
-  $('#mapQ').value = (area ? area + ' ' : '') + cu.kw;
-  MapView.cuisine = cu;
-  const full = (area ? area + ' ' : '') + cu.name + ' 맛집';
+  const pre = area ? area + ' ' : '';
+  $('#mapQ').value = pre + o.q;
+  MapView.cuisine = o.cuisine || null;
   const bar = $('#mapCuisineBar');
   bar.hidden = false;
-  bar.innerHTML = `<b>${cu.em} ${esc(cu.name)}</b> <span class="meta">${esc(area || myArea || '내 주변')}</span>
+  bar.innerHTML = `<b>${esc(o.em)} ${esc(o.name)}</b> <span class="meta">${esc(area || myArea || '내 주변')}</span>
     <span style="flex:1"></span>
-    <a class="lnk kakao" href="${esc(Links.kakaoSearch((area ? area + ' ' : '') + cu.kw, area ? null : myPos))}" target="_blank" rel="noopener">카카오맵</a>
-    <a class="lnk naver" href="${esc(Links.naverSearch((area ? area + ' ' : '') + cu.kw))}" target="_blank" rel="noopener">네이버</a>
-    <a class="lnk plain" href="${esc(Links.naverBlog(full))}" target="_blank" rel="noopener">후기</a>`;
-  MapView.search('');
+    <a class="lnk kakao" href="${esc(Links.kakaoSearch(pre + (o.mapQ || o.q), area ? null : myPos))}" target="_blank" rel="noopener">카카오맵</a>
+    <a class="lnk naver" href="${esc(Links.naverSearch(pre + (o.mapQ || o.q)))}" target="_blank" rel="noopener">네이버</a>
+    <a class="lnk plain" href="${esc(Links.naverBlog(pre + (o.webQ || o.q)))}" target="_blank" rel="noopener">후기</a>
+    ${(o.extra || []).map(x => `<a class="lnk plain" href="${esc(x.url)}" target="_blank" rel="noopener">🔗 ${esc(x.label)}</a>`).join('')}
+    ${o.note ? `<div class="hint" style="flex-basis:100%;margin-top:2px">ℹ️ ${esc(o.note)}</div>` : ''}`;
+  MapView.search(o.themeId || '');
+}
+function openCuisine(id){
+  const cu = CUISINES.find(c => c.id === id); if (!cu) return;
+  openOnMap({em: cu.em, name: cu.name, q: cu.kw, mapQ: cu.kw, webQ: cu.name + ' 맛집', cuisine: cu});
 }
 document.addEventListener('click', e => { const b = e.target.closest('[data-cu]'); if (b) openCuisine(b.dataset.cu); });
 
@@ -514,7 +535,7 @@ let places   = LS.get('places', []);          // 저장한 장소
 let recents  = LS.get('recents', []);         // 최근 지역
 // 앱에 기본으로 들어 있는 카카오 JavaScript 키 (https://younguk06-sonny.github.io 에서만 동작)
 // 설정에서 다른 키를 넣으면 그 키를 우선 사용
-const APP_VER = '2026.11.06-11';   // 고칠 때마다 올림 (설정 화면 맨 아래에 표시)
+const APP_VER = '2026.11.06-12';   // 고칠 때마다 올림 (설정 화면 맨 아래에 표시)
 const BUILTIN_KAKAO_KEY = '76e1f2c0c1f996041b2d1c9441792ea1';
 function kakaoKey(){ return settings.kakaoKey || BUILTIN_KAKAO_KEY; }
 let settings = Object.assign({kakaoKey:'', openMode:'web', radius:3000, mode:'light'}, LS.get('settings', {}));
@@ -669,7 +690,7 @@ function renderThemes(){
   $('#findCats').innerHTML = catChips(findCat, 'data-fc');
   const tile = (t,i) => `
     <button class="theme" data-i="${i}" style="--c:${esc(themeColor(t))}">
-      <span class="del" data-del="${i}">✕</span>
+      <span class="del" data-del="${i}">✕</span>${inAppOK(t) ? '' : '<span class="nb" title="네이버 검색으로 연결">N</span>'}
       <span class="em">${esc(t.em)}</span><span class="nm">${esc(t.name)}</span>
     </button>`;
   const groups = CATS.filter(c => findCat === 'all' || findCat === c.id).map(c => {
@@ -737,6 +758,11 @@ function openThemeForm(i, presetCat){
 // ---------- 검색 시트 ----------
 function openSearchSheet(theme, freeText){
   if (theme && theme.special === 'parking') return openParkingSheet();
+  // 앱 지도에서 볼 수 있으면 창 없이 바로 지도로
+  if (kakaoKey() && theme && inAppOK(theme)) return openOnMap({em: theme.em, name: theme.name,
+    q: theme.mapKw || theme.mapQ || theme.kw, mapQ: theme.mapQ || theme.kw, webQ: theme.web || theme.kw,
+    themeId: theme.id, note: theme.note, extra: theme.extra});
+  if (kakaoKey() && !theme && freeText) return openOnMap({em: '🔎', name: freeText, q: freeText, mapQ: freeText, webQ: freeText + ' 후기'});
   const area = currentArea();
   if (!useMyLoc && area) rememberRegion(area);
   const pre = area ? area + ' ' : '';
@@ -790,9 +816,12 @@ function openSearchSheet(theme, freeText){
       ${webBlock}`}
     <hr>
     ${kakaoKey() && inAppKw
-      ? `<button class="btn primary" id="sOpenMap" style="width:100%">🗺️ 이 앱 지도에서 "${esc(inAppKw)}" 찾기</button>`
-      : `<p class="hint">마음에 드는 곳을 찾으면 아래 버튼으로 가게 이름을 넣고 <b>위치 찾기</b>를 누르면 지도 위치까지 저장돼요.</p>`}
-    <button class="btn ghost" id="sAdd" style="width:100%;margin-top:8px">＋ 찾은 장소 저장하기</button>
+      ? `<button class="btn primary" id="sOpenMap" style="width:100%">🗺️ 이 앱 지도에서 "${esc(inAppKw)}" 찾기</button>
+         <button class="btn ghost" id="sAdd" style="width:100%;margin-top:8px">＋ 찾은 장소 저장하기</button>`
+      : `<div class="label" style="margin-top:0">${tv ? '③ ' : ''}찾은 가게 바로 저장하기</div>
+         <div class="row"><input class="input" id="sName" placeholder="방송·후기에서 본 가게 이름" autocomplete="off">
+           <button class="btn primary" id="sQuick">위치 찾기</button></div>
+         <div class="hint" style="margin-top:6px">가게 이름만 넣으면 위치를 찾아서 ${theme ? `‘${esc(theme.name)}’ 테마로 ` : ''}내 목록에 둬요.</div>`}
   `);
   const so = $('#sOpenMap');
   if (so) so.onclick = () => {
@@ -800,7 +829,13 @@ function openSearchSheet(theme, freeText){
     $('#mapQ').value = (!useMyLoc && area ? area + ' ' : '') + inAppKw;
     MapView.search(theme ? theme.id : '');
   };
-  $('#sAdd').onclick = () => openPlaceForm(null, theme ? theme.id : '');
+  const sa = $('#sAdd'); if (sa) sa.onclick = () => openPlaceForm(null, theme ? theme.id : '');
+  const sq = $('#sQuick');
+  if (sq){
+    const go = () => { const n = $('#sName').value.trim(); if (!n) return toast('가게 이름을 입력하세요');
+      openPlaceForm(null, theme ? theme.id : '', {name: n, lookup: true}); };
+    sq.onclick = go; $('#sName').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  }
 }
 $('#btnFree').addEventListener('click', () => {
   const v = $('#freeQ').value.trim(); if (!v) return toast('검색어를 입력하세요');
@@ -809,9 +844,24 @@ $('#btnFree').addEventListener('click', () => {
 $('#freeQ').addEventListener('keydown', e => { if (e.key === 'Enter') $('#btnFree').click(); });
 
 // ---------- 시트 공통 ----------
-function openSheet(html){ $('#sheetBody').innerHTML = html; $('#dim').classList.add('on'); $('#sheet').classList.add('on'); }
+function openSheet(html){ $('#sheetBody').innerHTML = html; $('#dim').classList.add('on'); $('#sheet').classList.add('on'); $('#sheet').scrollTop = 0; ensureGuard(); }
 function closeSheet(){ $('#dim').classList.remove('on'); $('#sheet').classList.remove('on'); }
 $('#dim').addEventListener('click', closeSheet);
+
+// ---------- 휴대폰 '뒤로 가기' ----------
+// 창·사진·다른 탭이 열려 있으면 뒤로 가기로 그것부터 닫고, 첫 화면에서만 앱이 닫히게 함
+let navGuard = !!(history.state && history.state.g);
+function curTab(){ const b = document.querySelector('nav.tabs button.on'); return b ? b.dataset.tab : 'dash'; }
+function anyLayer(){ return $('#viewer').classList.contains('on') || $('#sheet').classList.contains('on') || curTab() !== 'dash'; }
+function ensureGuard(){ if (!navGuard){ try{ history.pushState({g: 1}, ''); navGuard = true; }catch(e){} } }
+window.addEventListener('popstate', () => {
+  navGuard = false;
+  if ($('#viewer').classList.contains('on')) Viewer.close();
+  else if ($('#sheet').classList.contains('on')) closeSheet();
+  else if (curTab() !== 'dash') showTab('dash');
+  else return;            // 열린 게 없으면 그대로 → 한 번 더 누르면 앱 종료
+  if (anyLayer()) ensureGuard();
+});
 
 // ---------- 사진 저장소 (IndexedDB: 사진은 용량이 커서 따로 보관) ----------
 const PhotoDB = {
@@ -860,7 +910,7 @@ function fillPhotos(root = document){
 // 사진 크게 보기
 const Viewer = {
   ids: [], i: 0,
-  async show(ids, i){ this.ids = ids; this.i = i; $('#viewer').classList.add('on'); this.draw(); },
+  async show(ids, i){ this.ids = ids; this.i = i; $('#viewer').classList.add('on'); ensureGuard(); this.draw(); },
   async draw(){ $('#vCount').textContent = `${this.i + 1} / ${this.ids.length}`;
     $('#vImg').src = (await PhotoDB.get(this.ids[this.i])) || ''; },
   move(d){ this.i = (this.i + d + this.ids.length) % this.ids.length; this.draw(); },
@@ -1053,7 +1103,7 @@ function themeOptions(sel){
 // 장소 추가/수정 폼. prefill: 카카오 검색결과 등
 function openPlaceForm(existing, themeId, prefill){
   const p = existing || Object.assign({name:'', address:'', region:currentArea(), memo:'', theme:themeId||''}, prefill || {});
-  const canLookup = !!kakaoKey() && !existing && !prefill;
+  const canLookup = !!kakaoKey() && !existing && (!prefill || prefill.lookup);
   openSheet(`
     <h2>${existing ? '장소 수정' : '장소 저장'}</h2>
     <div class="field"><label>가게·장소 이름</label>
@@ -1074,7 +1124,8 @@ function openPlaceForm(existing, themeId, prefill){
     const name = $('#pName').value.trim(); if (!name) return toast('이름을 먼저 입력하세요');
     if (!await Kakao.ready()) return toast('카카오 키를 확인하세요');
     const area = $('#pAddr').value.trim();
-    const res = await Kakao.keyword((area ? area.split(' ').slice(0,2).join(' ')+' ' : '') + name, {size:5});
+    let res = await Kakao.keyword((area ? area.split(' ').slice(0,2).join(' ')+' ' : '') + name, {size:5});
+    if (!res.length && area) res = await Kakao.keyword(name, {size:5});   // 다른 지역 가게일 수 있어서 전국에서 다시
     const box = $('#pLookupRes');
     if (!res.length){ box.innerHTML = `<div class="hint" style="margin-top:6px">검색 결과가 없어요. 이름을 조금 바꿔 보세요.</div>`; return; }
     box.innerHTML = res.map((r,i) => `<button class="card" data-pick="${i}" style="display:block;width:100%;text-align:left;margin:6px 0 0;padding:10px;border:1.5px solid var(--line)">
@@ -1087,6 +1138,7 @@ function openPlaceForm(existing, themeId, prefill){
       box.innerHTML = ''; $('#pCoord').textContent = '📍 위치를 찾았어요. 저장하면 지도에 표시돼요.';
     };
   };
+  if (lk && prefill && prefill.lookup) lk.click();   // 이름을 넣고 왔으면 바로 위치 찾기
   $('#pSave').onclick = () => {
     const name = $('#pName').value.trim(); if (!name) return toast('이름을 입력하세요');
     const addr = $('#pAddr').value.trim();
@@ -1462,7 +1514,7 @@ function pkPin(p){
 }
 function pkCard(p){
   const h = pkHour(p), today = pkToday(p);
-  const fee = h === 0 ? '<span class="free">무료</span>' : h === -1 ? '<span class="unk">요금 확인 필요 (등록된 값이 이상해요)</span>' : h == null ? '<span class="unk">요금 정보 없음' + (p.fee ? ' (' + esc(p.fee) + ')' : '') + '</span>' : `1시간 <b>${won(h)}</b>`;
+  const fee = h === 0 ? '<span class="free">무료</span>' : h === -1 ? '<span class="unk">요금 확인 필요 (등록된 값이 이상해요)</span>' : h == null ? '<span class="unk">요금 정보 없음' + (p.fee ? ' (' + esc(p.fee) + ')' : '') + ' · 현장·카카오맵에서 확인</span>' : `1시간 <b>${won(h)}</b>`;
   const pos = {name: p.name, lat: p.lat, lng: p.lng};
   return `<div class="card pkc ${h === 0 ? 'free' : ''}">
     <div class="top"><h3>${esc(p.name)}</h3>${p.dist != null ? `<span class="dist">${fmtDist(p.dist / 1000)}</span>` : ''}</div>
@@ -1564,12 +1616,27 @@ function renderDash(){
     <div class="label" style="margin-top:4px">테마로 바로 찾기 <button data-goto="find">전체 보기</button></div>
     <div class="cats">${catChips(dashCat, 'data-dc')}</div>
     <div class="hscroll">${byInApp(themes.map((t,i) => [t,i]).filter(([t]) => dashCat === 'all' || catOf(t) === dashCat)).map(([t,i]) =>
-      `<button class="qchip" data-q="${i}" style="--c:${esc(themeColor(t))}">${esc(t.em)} ${esc(t.name)}</button>`).join('')
+      `<button class="qchip" data-q="${i}" style="--c:${esc(themeColor(t))}">${esc(t.em)} ${esc(t.name)}${inAppOK(t) ? '' : '<span class="nb2">N</span>'}</button>`).join('')
       || '<div class="hint">이 분류에는 아직 테마가 없어요.</div>'}</div>
+    ${(dashCat === 'all' || dashCat === 'food') && themes.some(t => !inAppOK(t)) ? '<div class="hint" style="margin-top:6px"><span class="nb2" style="margin:0 2px 0 0">N</span> 표시는 앱 지도 대신 네이버 검색으로 찾아요</div>' : ''}
     ${dashCat === 'food' ? `
     <div class="label">무엇을 먹을까요? <button data-cuexp="1">${dashCuOpen ? '접기 ▲' : `전체 보기 (${CUISINES.length}) ▼`}</button></div>
     ${cuisineGrid(dashCuOpen ? 0 : 5)}` : ''}
     <div style="height:6px"></div>
+    ${backupNag(total)}
+    ${total === 0 ? `
+    <div class="card start">
+      <div class="st-title">🍑 자두는 이렇게 써요</div>
+      <ol class="steps">
+        <li><b>찾기</b> 위 테마나 음식 종류를 누르면 내 주변 가게가 지도에 나와요</li>
+        <li><b>두기</b> 마음에 드는 곳의 <b>☆ 저장</b>을 누르면 내 목록에 담겨요</li>
+        <li><b>가기</b> 저장한 곳에서 <b>🚗 길찾기</b>로 바로 출발해요</li>
+      </ol>
+      <div class="row" style="gap:8px">
+        <button class="btn primary" data-start="food" style="flex:1">🍽️ 주변 맛집 보기</button>
+        <button class="btn" data-start="parking" style="flex:1">🅿️ 주변 주차장</button>
+      </div>
+    </div>` : `
     <div class="kpis">
       <div class="kpi hero">
         <div class="k">나의 명소 지도</div>
@@ -1608,6 +1675,7 @@ function renderDash(){
     <div class="label">${listTitle} <button data-goto="saved">전체 보기</button></div>
     <div class="card" style="padding:4px 14px">${listItems.length ? listItems.join('')
       : `<div class="empty" style="padding:18px 8px">저장한 명소가 여기에 보여요.</div>`}</div>
+    `}
   `;
 }
 // ---------- 대시보드 미니 지도 ----------
@@ -1663,6 +1731,15 @@ renderDash = function(){ _renderDash(); fillPhotos($('#dash')); DashMap.refresh(
 let dashCat = 'all';   // 앱을 열면 항상 '전체'로 시작
 let dashCuOpen = false;   // '무엇을 먹을까요?' 펼침 여부 (방송 맛집을 눌렀을 때만 나오고, 처음엔 첫 줄만)
 $('#dash').addEventListener('click', e => {
+  const st = e.target.closest('[data-start]');
+  if (st){
+    if (st.dataset.start === 'parking') return openParkingSheet();
+    dashCat = 'food'; dashCuOpen = true; _renderDash(); fillPhotos($('#dash'));
+    const g = $('#dash .cuis'); if (g) g.scrollIntoView({behavior: 'smooth', block: 'center'});
+    return;
+  }
+  const bk = e.target.closest('[data-backup]');
+  if (bk){ if (bk.dataset.backup === 'later'){ LS.set('backupSnooze', Date.now()); renderDash(); } else exportBackup(); return; }
   if (e.target.closest('[data-cuexp]')){ dashCuOpen = !dashCuOpen; _renderDash(); fillPhotos($('#dash')); return; }
   const dc = e.target.closest('[data-dc]');
   if (dc){ dashCat = dc.dataset.dc; dashCuOpen = false; _renderDash(); fillPhotos($('#dash')); return; }
@@ -1671,8 +1748,55 @@ $('#dash').addEventListener('click', e => {
   if (g){ if (g.dataset.sort) $('#savedSort').value = g.dataset.sort; return showTab(g.dataset.goto); }
 });
 
+// ---------- 백업 ----------
+async function exportBackup(){
+  const photoData = {};
+  for (const p of places) for (const id of (p.photos || [])){ try{ const d = await PhotoDB.get(id); if (d) photoData[id] = d; }catch(e){} }
+  const blob = new Blob([JSON.stringify({app:'myeongso', v:2, exportedAt:new Date().toISOString(), themes, places, recents, photos:photoData})], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `자두_백업_${new Date().toISOString().slice(0,10)}.json`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  LS.set('lastBackup', Date.now()); toast('💾 백업 파일을 받았어요 (다운로드 폴더)');
+  if ($('#v-dash').classList.contains('on')) renderDash();
+}
+// 저장한 곳이 3곳 이상인데 30일 넘게 백업을 안 했으면 대시보드에 알림 (나중에 → 7일 뒤 다시)
+function backupNag(total){
+  const DAY = 864e5, last = LS.get('lastBackup', 0), snooze = LS.get('backupSnooze', 0);
+  if (total < 3 || Date.now() - last < 30 * DAY || Date.now() - snooze < 7 * DAY) return '';
+  return `<div class="card nag"><div>💾 저장한 <b>${total}곳</b>과 후기·사진은 이 휴대폰에만 있어요. 폰을 바꾸기 전에 백업해 두세요.</div>
+    <div class="row" style="gap:6px;margin-top:8px"><button class="btn small primary" data-backup="now">백업 받기</button><button class="btn small ghost" data-backup="later">나중에</button></div></div>`;
+}
+
+// ---------- 새 버전 알림 ----------
+async function doUpdate(){
+  toast('최신 버전을 불러오는 중…');
+  try{
+    if ('serviceWorker' in navigator){ for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); }
+    if (window.caches){ for (const k of await caches.keys()) await caches.delete(k); }
+  }catch(e){}
+  location.replace(location.pathname + '?v=' + Date.now());
+}
+let lastUpdateCheck = 0;
+async function checkUpdate(){
+  if (Date.now() - lastUpdateCheck < 10 * 60e3) return;
+  lastUpdateCheck = Date.now();
+  try{
+    const t = await (await fetch('index.html?check=' + Date.now(), {cache: 'no-store'})).text();
+    const m = t.match(/const APP_VER = '([^']+)'/);
+    if (m && m[1] !== APP_VER && !$('#updBar')){
+      const bar = document.createElement('div'); bar.id = 'updBar'; bar.className = 'updbar';
+      bar.innerHTML = `<span>🍑 새 버전이 나왔어요</span><button class="btn small primary">지금 업데이트</button><button class="x" aria-label="닫기">✕</button>`;
+      bar.querySelector('.btn').onclick = doUpdate;
+      bar.querySelector('.x').onclick = () => bar.remove();
+      document.body.appendChild(bar);
+    }
+  }catch(e){}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
+
 // ---------- 탭 ----------
 function showTab(name){
+  if (name !== 'dash') ensureGuard();
   document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === 'v-'+name));
   if (name === 'map') MapView.init();
@@ -1735,14 +1859,7 @@ function openSettings(){
     closeSheet(); toast('설정을 저장했어요');
     if (keyChanged) setTimeout(() => location.reload(), 500);   // 새 키로 지도 다시 불러오기
   };
-  $('#sExport').onclick = async () => {
-    const photoData = {};
-    for (const p of places) for (const id of (p.photos || [])){ try{ const d = await PhotoDB.get(id); if (d) photoData[id] = d; }catch(e){} }
-    const blob = new Blob([JSON.stringify({app:'myeongso', v:2, exportedAt:new Date().toISOString(), themes, places, recents, photos:photoData})], {type:'application/json'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `자두_백업_${new Date().toISOString().slice(0,10)}.json`; a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  };
+  $('#sExport').onclick = () => exportBackup();
   $('#sImport').onclick = () => $('#sFile').click();
   $('#sFile').onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
@@ -1759,14 +1876,7 @@ function openSettings(){
       closeSheet(); renderThemes(); renderSaved(); renderDash(); toast('백업을 불러왔어요');
     }catch(err){ toast('백업 파일 형식이 아니에요'); }
   };
-  $('#sUpdate').onclick = async () => {
-    toast('최신 버전을 불러오는 중…');
-    try{
-      if ('serviceWorker' in navigator){ for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); }
-      if (window.caches){ for (const k of await caches.keys()) await caches.delete(k); }
-    }catch(e){}
-    location.replace(location.pathname + '?v=' + Date.now());
-  };
+  $('#sUpdate').onclick = () => doUpdate();
   $('#sResetThemes').onclick = () => {
     if (!confirm('테마를 기본값으로 되돌릴까요? (저장 장소는 그대로)')) return;
     themes = DEFAULT_THEMES.slice(); LS.set('themes', themes); closeSheet(); renderThemes(); renderSaved();
@@ -1777,7 +1887,30 @@ $('#btnSettings').addEventListener('click', openSettings);
 // ---------- 시작 ----------
 $('#findCuis').innerHTML = cuisineGrid();
 renderThemes(); renderRegionChips(); renderSaved(); renderDash();
-useCurrentLocation(true);   // 앱을 열면 바로 내 위치 기준으로 시작
+try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}   // 브라우저가 저장 데이터를 임의로 지우지 않게 요청
+setTimeout(checkUpdate, 4000);
+if (!LS.get('onboarded', false) && !places.length){
+  // 처음 연 사람에게 한 번만: 이름 뜻과 쓰는 법 → '시작하기'를 누르면 위치 확인
+  openSheet(`
+    <div style="text-align:center;padding:6px 0 2px"><img src="icon-192.png" alt="" style="width:76px;height:76px;border-radius:20px"></div>
+    <h2 style="text-align:center;margin-top:8px">자두에 오신 걸 환영해요</h2>
+    <p class="q" style="text-align:center"><b style="color:var(--accent)">자</b>주 가는 곳을 <b style="color:var(--accent)">두</b>다 — 가고 싶은 곳을 찾고, 내 목록에 두고, 바로 이동해요</p>
+    <ol class="steps" style="margin:6px 0 12px">
+      <li><b>찾기</b> 방송 맛집·음식 종류·빵집·카페·주차장을 내 주변에서 찾아요</li>
+      <li><b>두기</b> ☆ 저장으로 내 목록에 담고, 가 본 곳엔 별점·후기·사진을 남겨요</li>
+      <li><b>가기</b> 🚗 길찾기로 카카오맵에서 바로 출발해요</li>
+    </ol>
+    <p class="hint">• 내 주변부터 보여드리려고 위치 권한을 물어봐요.<br>• 저장한 곳은 이 휴대폰에만 보관돼요. 설정에서 백업할 수 있어요.</p>
+    <button class="btn primary" id="obStart" style="width:100%;margin-top:6px">시작하기</button>`);
+  let started = false;
+  const start = () => { if (started) return; started = true; LS.set('onboarded', true); closeSheet(); useCurrentLocation(true); };
+  $('#obStart').onclick = start;
+  $('#dim').addEventListener('click', start, {once: true});
+  window.addEventListener('popstate', start, {once: true});
+} else {
+  LS.set('onboarded', true);
+  useCurrentLocation(true);   // 앱을 열면 바로 내 위치 기준으로 시작
+}
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }

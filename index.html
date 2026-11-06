@@ -400,6 +400,7 @@ let places   = LS.get('places', []);          // 저장한 장소
 let recents  = LS.get('recents', []);         // 최근 지역
 // 앱에 기본으로 들어 있는 카카오 JavaScript 키 (https://younguk06-sonny.github.io 에서만 동작)
 // 설정에서 다른 키를 넣으면 그 키를 우선 사용
+const APP_VER = '2026.11.06-2';   // 고칠 때마다 올림 (설정 화면 맨 아래에 표시)
 const BUILTIN_KAKAO_KEY = '76e1f2c0c1f996041b2d1c9441792ea1';
 function kakaoKey(){ return settings.kakaoKey || BUILTIN_KAKAO_KEY; }
 let settings = Object.assign({kakaoKey:'', openMode:'web', radius:3000, mode:'light'}, LS.get('settings', {}));
@@ -966,17 +967,30 @@ function openPlaceForm(existing, themeId, prefill){
 // ---------- 카카오 지도 SDK (선택 기능) ----------
 const Kakao = {
   _p: null,
-  ready(){
-    if (!kakaoKey()) return Promise.resolve(false);
-    if (this._p) return this._p;
-    this._p = new Promise(resolve => {
+  _load(key){
+    return new Promise(resolve => {
       const s = document.createElement('script');
-      s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${enc(kakaoKey())}&libraries=services&autoload=false`;
+      s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${enc(key)}&libraries=services&autoload=false`;
       s.onload = () => { try{ kakao.maps.load(() => resolve(true)); }catch(e){ resolve(false); } };
-      s.onerror = () => { toast('카카오 지도를 불러오지 못했어요 (키·도메인 등록 확인)'); this._p = null; resolve(false); };
+      s.onerror = () => { s.remove(); resolve(false); };
       document.head.appendChild(s);
       setTimeout(() => resolve(!!(window.kakao && kakao.maps && kakao.maps.services)), 9000);
     });
+  },
+  ready(){
+    if (!kakaoKey()) return Promise.resolve(false);
+    if (this._p) return this._p;
+    this._p = (async () => {
+      let ok = await this._load(kakaoKey());
+      // 설정에 직접 넣은 키가 틀렸으면 앱 기본 키로 한 번 더
+      if (!ok && settings.kakaoKey && settings.kakaoKey !== BUILTIN_KAKAO_KEY){
+        try{ delete window.kakao; }catch(e){ window.kakao = undefined; }
+        ok = await this._load(BUILTIN_KAKAO_KEY);
+        if (ok){ settings.kakaoKey = ''; LS.set('settings', settings); toast('설정의 카카오 키가 맞지 않아 앱 기본 키로 바꿨어요'); }
+      }
+      if (!ok){ toast('카카오 지도를 불러오지 못해 기본 지도로 보여드려요'); this._p = null; }
+      return ok;
+    })();
     return this._p;
   },
   keyword(q, opt = {}){
@@ -1392,6 +1406,10 @@ function openSettings(){
     </div>
     <input type="file" id="sFile" accept="application/json,.json" hidden>
     <button class="btn ghost" id="sResetThemes" style="width:100%;margin-top:8px">테마를 기본값으로 되돌리기</button>
+    <hr>
+    <div class="label" style="margin-top:0">앱 버전 <span style="font-weight:400">${APP_VER}</span></div>
+    <p class="hint" style="margin-top:0">새 기능이 안 보이면 눌러 주세요. 저장한 장소·후기·사진은 지워지지 않아요.</p>
+    <button class="btn primary" id="sUpdate" style="width:100%">🔄 최신 버전으로 새로고침</button>
   `);
   let mode = settings.openMode;
   $('#sTheme').onclick = e => { const b = e.target.closest('[data-t]'); if (!b) return;
@@ -1429,6 +1447,14 @@ function openSettings(){
       LS.set('places', places); LS.set('themes', themes);
       closeSheet(); renderThemes(); renderSaved(); renderDash(); toast('백업을 불러왔어요');
     }catch(err){ toast('백업 파일 형식이 아니에요'); }
+  };
+  $('#sUpdate').onclick = async () => {
+    toast('최신 버전을 불러오는 중…');
+    try{
+      if ('serviceWorker' in navigator){ for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); }
+      if (window.caches){ for (const k of await caches.keys()) await caches.delete(k); }
+    }catch(e){}
+    location.replace(location.pathname + '?v=' + Date.now());
   };
   $('#sResetThemes').onclick = () => {
     if (!confirm('테마를 기본값으로 되돌릴까요? (저장 장소는 그대로)')) return;

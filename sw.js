@@ -1,6 +1,6 @@
-// 지도 앱 서비스워커 — 앱 화면을 기기에 저장해 두어 빠르게 열리게 함
+// 자두 앱 서비스워커 — 앱 화면을 기기에 저장해 두어 빠르게 열리게 함
 // 앱을 고친 뒤 GitHub에 다시 올릴 때는 아래 버전 숫자를 하나 올려 주세요 (v1 → v2)
-const CACHE = 'myeongso-v4';
+const CACHE = 'myeongso-v5';
 const FILES = [
   './', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './icon-maskable-512.png',

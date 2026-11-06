@@ -1,13 +1,13 @@
 {
-  "name": "지도 - 지금 가고 싶은 곳, 도착하고 싶은 곳",
-  "short_name": "지도",
-  "description": "지도 — 지금 가고 싶은 곳, 도착하고 싶은 곳. 방송 맛집·빵집·카페·주차장 등 장소를 찾고, 저장하고, 길찾기로 이동까지 이어주는 앱",
+  "name": "자두 - 자주 가는 곳을 두다",
+  "short_name": "자두",
+  "description": "자두 — 자주 가는 곳을 두다. 방송 맛집·빵집·카페·주차장 등 장소를 찾고, 내 목록에 두고, 길찾기로 이동까지 이어주는 앱",
   "lang": "ko",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f3f5f8",
+  "background_color": "#fff7f2",
   "theme_color": "#f3f5f8",
   "icons": [
     {

@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>지도</title>
-<meta name="description" content="지도 — 지금 가고 싶은 곳, 도착하고 싶은 곳. 방송 맛집·빵집·카페·주차장 등 장소를 찾고, 저장하고, 길찾기로 이동까지 이어주는 앱">
+<title>자두</title>
+<meta name="description" content="자두 — 자주 가는 곳을 두다. 방송 맛집·빵집·카페·주차장 등 장소를 찾고, 내 목록에 두고, 길찾기로 이동까지 이어주는 앱">
 <meta name="theme-color" content="#f3f5f8">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="지도">
+<meta name="apple-mobile-web-app-title" content="자두">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script>
 try{ var _s = JSON.parse(localStorage.getItem('ms_settings')||'{}'), _m = _s.mode || 'light';
@@ -250,7 +250,7 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
 <div class="app">
   <header>
     <img src="icon-192.png" alt="">
-    <div class="ttl"><h1 id="title">지도 <small><b>지</b>금 가고 싶은 곳, <b>도</b>착하고 싶은 곳</small></h1><div class="where" id="where">위치 확인 중…</div></div>
+    <div class="ttl"><h1 id="title">자두 <small><b>자</b>주 가는 곳을 <b>두</b>다</small></h1><div class="where" id="where">위치 확인 중…</div></div>
     <button class="icon-btn" id="btnSettings" aria-label="설정">⚙️</button>
   </header>
 
@@ -356,8 +356,8 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
 <script>
 'use strict';
 /* =========================================================
-   지도 — 지금 가고 싶은 곳, 도착하고 싶은 곳
-   장소 탐색(찾기) → 저장 → 이동(길찾기)까지 이어주는 단일 파일 앱 (데이터는 이 기기 브라우저에만 저장)
+   자두 — 자주 가는 곳을 두다
+   장소 탐색(찾기) → 내 목록에 두기(저장) → 이동(길찾기)까지 이어주는 단일 파일 앱 (데이터는 이 기기 브라우저에만 저장)
    ========================================================= */
 
 // ---------- 기본 테마 (앱에서 편집/추가 가능) ----------
@@ -456,7 +456,7 @@ let places   = LS.get('places', []);          // 저장한 장소
 let recents  = LS.get('recents', []);         // 최근 지역
 // 앱에 기본으로 들어 있는 카카오 JavaScript 키 (https://younguk06-sonny.github.io 에서만 동작)
 // 설정에서 다른 키를 넣으면 그 키를 우선 사용
-const APP_VER = '2026.11.06-6';   // 고칠 때마다 올림 (설정 화면 맨 아래에 표시)
+const APP_VER = '2026.11.06-7';   // 고칠 때마다 올림 (설정 화면 맨 아래에 표시)
 const BUILTIN_KAKAO_KEY = '76e1f2c0c1f996041b2d1c9441792ea1';
 function kakaoKey(){ return settings.kakaoKey || BUILTIN_KAKAO_KEY; }
 let settings = Object.assign({kakaoKey:'', openMode:'web', radius:3000, mode:'light'}, LS.get('settings', {}));
@@ -1621,9 +1621,10 @@ function openSettings(){
   openSheet(`
     <h2>⚙️ 설정</h2>
     <div class="card" style="margin:10px 0 4px;padding:12px 14px;box-shadow:none;background:var(--card2)">
-      <div style="font-weight:800;font-size:15px">🧭 지도 = <span style="color:var(--accent)">지</span>금 가고 싶은 곳, <span style="color:var(--accent)">도</span>착하고 싶은 곳</div>
-      <div class="hint" style="margin-top:4px">‘당근’이 ‘당신 근처’인 것처럼, ‘지도’는 지금 가고 싶은 곳과 도착하고 싶은 곳을 뜻해요.
-        장소를 <b>찾고</b> → <b>저장하고</b> → <b>길찾기로 이동</b>까지 한 번에 이어 드려요.</div>
+      <div style="display:flex;align-items:center;gap:10px"><img src="icon-192.png" alt="" style="width:40px;height:40px;border-radius:11px">
+        <div style="font-weight:800;font-size:15px">자두 = <span style="color:var(--accent)">자</span>주 가는 곳을 <span style="color:var(--accent)">두</span>다</div></div>
+      <div class="hint" style="margin-top:6px">‘당근’이 ‘당신 근처’의 줄임말인 것처럼, ‘자두’는 ‘자주 가는 곳을 두다’의 줄임말이에요.
+        가고 싶은 곳을 <b>찾고</b> → 내 목록에 <b>두고</b> → <b>길찾기로 이동</b>까지 한 번에 이어 드려요.</div>
     </div>
     <div class="field" style="margin-top:12px"><label>화면 모드</label>
       <div class="seg" id="sTheme">
@@ -1673,7 +1674,7 @@ function openSettings(){
     for (const p of places) for (const id of (p.photos || [])){ try{ const d = await PhotoDB.get(id); if (d) photoData[id] = d; }catch(e){} }
     const blob = new Blob([JSON.stringify({app:'myeongso', v:2, exportedAt:new Date().toISOString(), themes, places, recents, photos:photoData})], {type:'application/json'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `지도_백업_${new Date().toISOString().slice(0,10)}.json`; a.click();
+    a.download = `자두_백업_${new Date().toISOString().slice(0,10)}.json`; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
   $('#sImport').onclick = () => $('#sFile').click();

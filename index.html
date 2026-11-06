@@ -456,7 +456,7 @@ let places   = LS.get('places', []);          // 저장한 장소
 let recents  = LS.get('recents', []);         // 최근 지역
 // 앱에 기본으로 들어 있는 카카오 JavaScript 키 (https://younguk06-sonny.github.io 에서만 동작)
 // 설정에서 다른 키를 넣으면 그 키를 우선 사용
-const APP_VER = '2026.11.06-5';   // 고칠 때마다 올림 (설정 화면 맨 아래에 표시)
+const APP_VER = '2026.11.06-6';   // 고칠 때마다 올림 (설정 화면 맨 아래에 표시)
 const BUILTIN_KAKAO_KEY = '76e1f2c0c1f996041b2d1c9441792ea1';
 function kakaoKey(){ return settings.kakaoKey || BUILTIN_KAKAO_KEY; }
 let settings = Object.assign({kakaoKey:'', openMode:'web', radius:3000, mode:'light'}, LS.get('settings', {}));

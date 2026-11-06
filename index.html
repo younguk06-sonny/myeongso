@@ -446,8 +446,9 @@ const CUISINES = [
   {id:'cafe',  em:'☕', name:'카페',       kw:'카페',       tok:['카페','커피전문점']},
   {id:'dsrt',  em:'🍰', name:'디저트',     kw:'디저트 카페',     tok:['디저트카페','제과,베이커리','아이스크림','떡,한과','도넛']}
 ];
-function cuisineGrid(){
-  return `<div class="cuis">${CUISINES.map(c => `<button class="cu" data-cu="${c.id}"><span class="cuimg">${c.em}</span><span class="cunm">${c.name}</span></button>`).join('')}</div>`;
+function cuisineGrid(limit){
+  const list = limit ? CUISINES.slice(0, limit) : CUISINES;
+  return `<div class="cuis">${list.map(c => `<button class="cu" data-cu="${c.id}"><span class="cuimg">${c.em}</span><span class="cunm">${c.name}</span></button>`).join('')}</div>`;
 }
 // 음식 종류를 누르면 → 지도 탭에서 내 주변(또는 입력한 지역) 그 종류 가게를 바로 검색
 async function openCuisine(id){
@@ -509,7 +510,7 @@ let places   = LS.get('places', []);          // 저장한 장소
 let recents  = LS.get('recents', []);         // 최근 지역
 // 앱에 기본으로 들어 있는 카카오 JavaScript 키 (https://younguk06-sonny.github.io 에서만 동작)
 // 설정에서 다른 키를 넣으면 그 키를 우선 사용
-const APP_VER = '2026.11.06-8';   // 고칠 때마다 올림 (설정 화면 맨 아래에 표시)
+const APP_VER = '2026.11.06-9';   // 고칠 때마다 올림 (설정 화면 맨 아래에 표시)
 const BUILTIN_KAKAO_KEY = '76e1f2c0c1f996041b2d1c9441792ea1';
 function kakaoKey(){ return settings.kakaoKey || BUILTIN_KAKAO_KEY; }
 let settings = Object.assign({kakaoKey:'', openMode:'web', radius:3000, mode:'light'}, LS.get('settings', {}));
@@ -1584,8 +1585,8 @@ function renderDash(){
         <span class="tx"><b>${esc(p.name)}</b><span>${starsHTML(p.rating)} ${fmtRate(p.rating)}${p.review ? ' · ' + esc(p.review.slice(0,24)) + (p.review.length > 24 ? '…' : '') : ''}</span></span>
       </a>`; }).join('')}</div>` : ''}
 
-    <div class="label">무엇을 먹을까요?</div>
-    ${cuisineGrid()}
+    <div class="label">무엇을 먹을까요? <button data-cuexp="1">${dashCuOpen ? '접기 ▲' : `전체 보기 (${CUISINES.length}) ▼`}</button></div>
+    ${cuisineGrid(dashCuOpen ? 0 : 5)}
     <div class="label">테마로 바로 찾기 <button data-goto="find">전체 보기</button></div>
     <div class="cats">${catChips(dashCat, 'data-dc')}</div>
     <div class="hscroll">${themes.map((t,i) => [t,i]).filter(([t]) => dashCat === 'all' || catOf(t) === dashCat).map(([t,i]) =>
@@ -1654,7 +1655,9 @@ $('#dashMapOpen').addEventListener('click', () => showTab('map'));
 const _renderDash = renderDash;
 renderDash = function(){ _renderDash(); fillPhotos($('#dash')); DashMap.refresh(); };
 let dashCat = LS.get('dashCat', 'all');
+let dashCuOpen = false;   // '무엇을 먹을까요?' 펼침 여부 (처음엔 첫 줄만)
 $('#dash').addEventListener('click', e => {
+  if (e.target.closest('[data-cuexp]')){ dashCuOpen = !dashCuOpen; _renderDash(); fillPhotos($('#dash')); return; }
   const dc = e.target.closest('[data-dc]');
   if (dc){ dashCat = dc.dataset.dc; LS.set('dashCat', dashCat); _renderDash(); fillPhotos($('#dash')); return; }
   const q = e.target.closest('[data-q]'); if (q) return openSearchSheet(themes[+q.dataset.q]);

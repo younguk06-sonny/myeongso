@@ -269,6 +269,13 @@ select.input{appearance:none}
 .viewer .bar{position:absolute;top:calc(10px + env(safe-area-inset-top));left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:0 14px;color:#fff;font-weight:700}
 .viewer button{border:0;background:rgba(255,255,255,.15);color:#fff;border-radius:12px;width:42px;height:42px;font-size:18px}
 .viewer .nav{position:absolute;bottom:calc(24px + env(safe-area-inset-bottom));display:flex;gap:16px}
+.exitdlg{position:fixed;inset:0;z-index:95;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:24px}
+.exitdlg.on{display:flex}
+.exbox{width:100%;max-width:300px;background:var(--card);border-radius:20px;padding:22px 18px 16px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.exicon{width:52px;height:52px;border-radius:14px}
+.extitle{font-size:17px;font-weight:800;margin:10px 0 16px}
+.exbtns{display:flex;gap:8px}
+.exbtns .btn{flex:1;padding:12px}
 .toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);
   background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:13.5px;opacity:0;transition:.2s;z-index:80;pointer-events:none;white-space:nowrap}
 .toast.on{opacity:1;transform:translateX(-50%)}
@@ -383,6 +390,13 @@ hr{border:0;border-top:1px solid var(--line);margin:16px 0}
 <div class="dim" id="dim"></div>
 <div class="sheet" id="sheet"><div class="grab"></div><div id="sheetBody"></div></div>
 <div class="toast" id="toast"></div>
+<div class="exitdlg" id="exitDlg" role="dialog" aria-modal="true" aria-labelledby="exTitle">
+  <div class="exbox">
+    <img src="icon-192.png" alt="" class="exicon">
+    <div class="extitle" id="exTitle">자두를 종료할까요?</div>
+    <div class="exbtns"><button class="btn ghost" id="exNo">아니요</button><button class="btn primary" id="exYes">예</button></div>
+  </div>
+</div>
 <div class="viewer" id="viewer">
   <div class="bar"><span id="vCount"></span><button id="vClose" aria-label="닫기">✕</button></div>
   <img id="vImg" alt="">
@@ -546,7 +560,7 @@ let places   = LS.get('places', []);          // 저장한 장소
 let recents  = LS.get('recents', []);         // 최근 지역
 // 앱에 기본으로 들어 있는 카카오 JavaScript 키 (https://younguk06-sonny.github.io 에서만 동작)
 // 설정에서 다른 키를 넣으면 그 키를 우선 사용
-const APP_VER = '2026.11.06-13';   // 고칠 때마다 올림 (설정 화면 맨 아래에 표시)
+const APP_VER = '2026.11.06-14';   // 고칠 때마다 올림 (설정 화면 맨 아래에 표시)
 const BUILTIN_KAKAO_KEY = '76e1f2c0c1f996041b2d1c9441792ea1';
 function kakaoKey(){ return settings.kakaoKey || BUILTIN_KAKAO_KEY; }
 let settings = Object.assign({kakaoKey:'', openMode:'web', radius:3000, mode:'light'}, LS.get('settings', {}));
@@ -865,13 +879,35 @@ let navGuard = !!(history.state && history.state.g);
 function curTab(){ const b = document.querySelector('nav.tabs button.on'); return b ? b.dataset.tab : 'dash'; }
 function anyLayer(){ return $('#viewer').classList.contains('on') || $('#sheet').classList.contains('on') || curTab() !== 'dash'; }
 function ensureGuard(){ if (!navGuard){ try{ history.pushState({g: 1}, ''); navGuard = true; }catch(e){} } }
+// 첫 화면에서 뒤로 가기 → '종료할까요?' 확인 창 (예를 누를 때만 종료)
+let exiting = false;
+function exitOpen(){ return $('#exitDlg').classList.contains('on'); }
+function showExit(){ $('#exitDlg').classList.add('on'); setTimeout(() => $('#exNo').focus(), 50); }
+function hideExit(){ $('#exitDlg').classList.remove('on'); }
 window.addEventListener('popstate', () => {
   navGuard = false;
-  if ($('#viewer').classList.contains('on')) Viewer.close();
+  if (exiting) return;
+  if (exitOpen()) hideExit();                        // 확인 창이 떠 있을 때 뒤로 가기 = 아니요
+  else if ($('#viewer').classList.contains('on')) Viewer.close();
   else if ($('#sheet').classList.contains('on')) closeSheet();
   else if (curTab() !== 'dash') showTab('dash');
-  else return;            // 열린 게 없으면 그대로 → 한 번 더 누르면 앱 종료
-  if (anyLayer()) ensureGuard();
+  else showExit();                                   // 열린 게 없으면 종료 확인
+  ensureGuard();                                     // 항상 한 칸 남겨 두어 바로 꺼지지 않게
+});
+$('#exNo').addEventListener('click', hideExit);
+$('#exitDlg').addEventListener('click', e => { if (e.target.id === 'exitDlg') hideExit(); });
+$('#exYes').addEventListener('click', () => {
+  hideExit(); exiting = true;
+  try{ window.close(); }catch(e){}                   // 홈 화면 앱이면 여기서 닫힘
+  // 닫히지 않는 환경(브라우저 탭 등)이면 남겨 둔 칸을 지워서 다음 뒤로 가기에 종료되게
+  setTimeout(() => {
+    history.back();
+    setTimeout(() => {
+      exiting = false;
+      toast('뒤로 가기를 한 번 더 누르면 종료돼요');
+      setTimeout(() => { if (!document.hidden) ensureGuard(); }, 3000);   // 3초 안에 안 누르면 다시 확인 창 모드로
+    }, 400);
+  }, 150);
 });
 
 // ---------- 사진 저장소 (IndexedDB: 사진은 용량이 커서 따로 보관) ----------
@@ -1900,6 +1936,7 @@ $('#findCuis').innerHTML = cuisineGrid();
 renderThemes(); renderRegionChips(); renderSaved(); renderDash();
 try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}   // 브라우저가 저장 데이터를 임의로 지우지 않게 요청
 setTimeout(checkUpdate, 4000);
+ensureGuard();   // 첫 화면에서도 뒤로 가기가 바로 종료되지 않도록
 if (!LS.get('onboarded', false) && !places.length){
   // 처음 연 사람에게 한 번만: 이름 뜻과 쓰는 법 → '시작하기'를 누르면 위치 확인
   openSheet(`
